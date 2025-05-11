@@ -1,0 +1,72 @@
+/* Animasi Kartu */
+.card {
+    transition: all 0.3s ease;
+    transform-style: preserve-3d;
+}
+
+.card.played {
+    animation: playCard 0.5s ease-out forwards;
+}
+
+.card.selected {
+    transform: translateY(-10px) rotateY(10deg);
+    box-shadow: 0 10px 15px rgba(0, 0, 0, 0.2);
+    z-index: 10;
+}
+
+@keyframes playCard {
+    0% {
+        transform: translateY(0) rotateY(0);
+    }
+    50% {
+        transform: translateY(-50px) rotateY(90deg);
+    }
+    100% {
+        transform: translateY(0) rotateY(0);
+    }
+}
+
+/* Animasi Muncul */
+.fade-in {
+    animation: fadeIn 0.5s ease-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Menu dan Tampilan Game */
+/* Game Container */
+#game-container {
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    max-height: 100vh;
+    overflow-y: auto;
+    padding-bottom: 20px;
+    display: none;
+}
+
+#game-container.show {
+    opacity: 1;
+    display: block;
+}
+
+#game-container.hidden {
+    display: none;
+}
+
+#game-area {
+    min-height: 60vh;
+    max-height: 70vh;
+    overflow-y: auto;
+}
+
+#main-menu {
+    transition: all 0.5s ease;
+}
+
+#main-menu.hide {
+    opacity: 0;
+    pointer-events: none;
+}

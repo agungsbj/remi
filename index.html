@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Remi Card Game</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <style>
+        body {
+            min-height: 100vh;
+            margin: 0;
+            padding: 0;
+            background-image: radial-gradient(circle, #0f2027 0%, #203a43 50%, #2c5364 100%);
+            font-family: Arial, sans-serif;
+        }
+        
+        /* Membuat tekstur meja */
+        .table-texture {
+            position: relative;
+        }
+        
+        .table-texture::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image: url('https://www.transparenttextures.com/patterns/felt.png');
+            opacity: 0.3;
+            pointer-events: none;
+        }
+        
+        /* Elemen dekoratif meja judi */
+        .casino-table {
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .casino-table::after {
+            content: '';
+            position: absolute;
+            top: 6px;
+            left: 6px;
+            right: 6px;
+            bottom: 6px;
+            border: 2px dashed rgba(255, 215, 0, 0.3);
+            border-radius: 6px;
+            pointer-events: none;
+        }
+        
+        /* Kartu normal di tangan pemain */
+        .card {
+            width: 65px;
+            height: 95px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            transition: all 0.2s ease;
+            cursor: pointer;
+            position: relative;
+            margin: 0 -8px;
+        }
+        
+        /* Container untuk kartu pemain utama */
+        #player-hand {
+            padding: 10px;
+            overflow: hidden;
+            min-height: 110px;
+        }
+        
+        /* Kartu di area permainan (lebih besar) */
+        #played-cards .card {
+            width: 110px;
+            height: 160px;
+            margin: 0 -8px;
+        }
+        
+        /* Kartu untuk pemain AI (pemain 1, 2, 3) */
+        #player-1-cards .card, #player-2-cards .card, #player-3-cards .card {
+            width: 55px;
+            height: 70px;
+            margin: 0 -15px;
+            font-size: 9px;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        /* Container untuk kartu pemain */
+        .player-cards {
+            padding: 5px;
+            overflow: hidden;
+            min-height: 60px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        /* Belakang kartu untuk pemain AI - motif poker klasik */
+        .card-back {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #b71c1c;
+            border-radius: 6px;
+            border: 2px solid rgba(255,255,255,0.3);
+            box-sizing: border-box;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+        }
+        
+        .card-back::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 85%;
+            height: 85%;
+            background-color: #d32f2f;
+            border-radius: 4px;
+            border: 2px solid rgba(255,255,255,0.3);
+            box-sizing: border-box;
+            z-index: 1;
+        }
+        
+        .card-back::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 65%;
+            height: 65%;
+            background-image: 
+                radial-gradient(circle, #d32f2f 0%, #d32f2f 15%, transparent 15%), 
+                radial-gradient(circle at 25% 25%, #fff 0%, #fff 3%, transparent 3%),
+                radial-gradient(circle at 75% 25%, #fff 0%, #fff 3%, transparent 3%),
+                radial-gradient(circle at 25% 75%, #fff 0%, #fff 3%, transparent 3%),
+                radial-gradient(circle at 75% 75%, #fff 0%, #fff 3%, transparent 3%),
+                repeating-linear-gradient(45deg, #f5f5f5 0px, #f5f5f5 2px, transparent 2px, transparent 4px);
+            border-radius: 4px;
+            border: 1px solid rgba(255,255,255,0.4);
+            z-index: 2;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.2);
+        }
+        
+        /* Mini kartu untuk area kartu 2 dan riwayat */
+        .mini-card {
+            width: 30px;
+            height: 45px;
+            background: white;
+            border-radius: 4px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin: 2px;
+            font-size: 10px;
+            position: relative;
+        }
+        
+        .card.selected {
+            transform: translateY(-20px);
+            box-shadow: 0 0 15px gold;
+            border: 2px solid gold;
+            z-index: 10;
+        }
+        
+        .player-area {
+            background: rgba(0,0,0,0.3);
+            border-radius: 10px;
+            padding: 10px;
+            margin: 10px;
+        }
+        
+        .player-name {
+            color: white;
+            font-weight: bold;
+            text-align: center;
+            margin-bottom: 5px;
+        }
+        
+        .player-cards {
+            display: flex;
+            justify-content: center;
+            min-height: 100px;
+        }
+        
+        .action-panel {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin: 15px 0;
+        }
+        
+        .action-button {
+            background: linear-gradient(135deg, #ffd54f 0%, #ffb300 100%);
+            color: #5d4037;
+            font-weight: bold;
+            padding: 8px 15px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            font-size: 0.85rem;
+        }
+        
+        .action-button:hover {
+            transform: scale(1.05);
+        }
+        
+        #played-cards {
+            min-height: 120px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: rgba(0,0,0,0.2);
+            border-radius: 10px;
+            padding: 10px;
+        }
+        
+        /* Media queries untuk tampilan mobile */
+        @media (max-width: 768px) {
+            .card {
+                width: 60px;
+                height: 85px;
+                margin: 0 -15px;
+                font-size: 12px;
+            }
+            
+            #played-cards .card {
+                width: 70px;
+                height: 100px;
+                margin: 0 -5px;
+            }
+            
+            #player-1-cards .card, #player-2-cards .card, #player-3-cards .card {
+                width: 30px;
+                height: 45px;
+                margin: 0 -20px;
+                font-size: 8px;
+            }
+            
+            .action-button {
+                padding: 6px 12px;
+                font-size: 0.8rem;
+            }
+            
+            .player-area {
+                padding: 5px;
+                margin: 5px;
+            }
+            
+            #played-cards > div {
+                height: 160px !important;
+            }
+            
+            #game-container {
+                padding: 0.5rem;
+            }
+            
+            .mini-card {
+                width: 25px;
+                height: 35px;
+                font-size: 8px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Pop-up pemenang -->
+    <div id="winner-popup" class="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-lg p-8 max-w-md text-center">
+            <h2 class="text-3xl font-bold mb-4">Selamat!</h2>
+            <p id="winner-message" class="text-xl mb-6">Pemain 1 memenangkan permainan!</p>
+            <button id="new-game-button" class="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-3 px-6 rounded-full transition duration-300 transform hover:scale-105">
+                Main Lagi
+            </button>
+        </div>
+    </div>
+    
+    <div class="container mx-auto min-h-screen flex flex-col">
+        <!-- Indikator giliran pemain -->
+        <!-- <div id="turn-indicator" class="text-center py-2 mb-2 bg-yellow-500 text-white font-bold rounded-lg">
+            Giliran: <span id="current-player-name">Anda</span>
+        </div> -->
+        
+        <!-- Area pemain lawan -->
+        <div class="grid grid-cols-3 gap-4 mb-4">
+            <div class="player-area" id="player-1-area">
+                <div class="player-name flex items-center justify-center">
+                    <div id="player-1-turn" class="px-2 py-1 rounded bg-gray-600 text-white text-xs font-bold transition-colors duration-300">Pemain 1</div>
+                </div>
+                <div class="player-cards" id="player-1-cards"></div>
+            </div>
+            
+            <div class="player-area" id="player-2-area">
+                <div class="player-name flex items-center justify-center">
+                    <div id="player-2-turn" class="px-2 py-1 rounded bg-gray-600 text-white text-xs font-bold transition-colors duration-300">Pemain 2</div>
+                </div>
+                <div class="player-cards" id="player-2-cards"></div>
+            </div>
+            
+            <div class="player-area" id="player-3-area">
+                <div class="player-name flex items-center justify-center">
+                    <div id="player-3-turn" class="px-2 py-1 rounded bg-gray-600 text-white text-xs font-bold transition-colors duration-300">Pemain 3</div>
+                </div>
+                <div class="player-cards" id="player-3-cards"></div>
+            </div>
+        </div>
+        
+        <!-- Area kartu yang dimainkan - dengan ukuran tetap -->
+        <div class="my-4">
+            <div class="flex">
+                <!-- Sidebar kiri (Kartu 2 dan Riwayat) -->
+                <div class="w-1/5 px-2 flex flex-col">
+                    <!-- Area untuk kartu 2 yang telah dimainkan -->
+                    <div id="played-twos" class="mb-4">
+                        <h3 class="text-white text-center font-bold mb-2 bg-green-800 py-1 rounded text-sm">Kartu 2</h3>
+                        <div class="flex flex-wrap gap-1 bg-black bg-opacity-30 rounded-lg p-2 h-28">
+                            <!-- Kartu 2 akan ditampilkan di sini sebagai mini-card -->
+                        </div>
+                    </div>
+                    
+                    <!-- Area riwayat kartu yang dibuang (dipindah ke bawah kartu 2) -->
+                    <div id="card-history" class="mb-2">
+                        <h3 class="text-white text-center font-bold mb-2 bg-green-800 py-1 rounded text-sm">Riwayat Kartu</h3>
+                        <div id="card-history-list" class="bg-black bg-opacity-30 rounded-lg p-2 h-52 overflow-y-auto">
+                            <!-- Riwayat kartu akan ditampilkan di sini -->
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Area untuk kartu yang sedang dimainkan (diperluas) -->
+                <div id="played-cards" class="w-4/5 flex flex-col items-center justify-center px-4">
+                    <div class="flex justify-center items-center bg-red-800 rounded-lg p-2 h-72 w-full mb-0 table-texture casino-table" style="box-shadow: inset 0 0 20px rgba(0,0,0,0.5); border: 4px solid #8B0000;">
+                        <!-- Kartu yang dimainkan akan ditampilkan di sini -->
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Panel aksi (dipindahkan ke atas) -->
+        <div id="action-buttons" class="action-panel mt-0 mb-0" style="margin-top: -20px;">
+            <button id="play-button" class="action-button bg-yellow-500">
+                Buang
+            </button>
+            <button id="pass-button" class="action-button bg-blue-500">
+                Lewat
+            </button>
+            <button id="sort-button" class="action-button bg-green-500">
+                Urutkan
+            </button>
+        </div>
+        
+        <!-- Area pemain utama -->
+        <div class="mt-0">
+            <div class="player-area" id="player-0-area">
+                <div class="player-name flex items-center justify-center">
+                    <div id="player-0-turn" class="px-2 py-1 rounded bg-gray-600 text-white text-xs font-bold transition-colors duration-300">Anda</div>
+                </div>
+                <div class="player-cards" id="player-hand"></div>
+            </div>
+            
+            <!-- Area pesan error telah dipindahkan dan dijadikan popup -->
+        </div>
+    </div>
+    
+    <!-- Popup pesan error (seperti SweetAlert) -->
+    <div id="error-message" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-lg p-6 max-w-md mx-4 shadow-xl transform transition-all ease-in-out duration-300 scale-100">
+            <div class="flex items-center mb-4">
+                <div class="flex-shrink-0 bg-red-100 rounded-full p-2 mr-3">
+                    <svg class="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                </div>
+                <h3 class="text-lg font-medium text-red-800">Kesalahan!</h3>
+            </div>
+            <div id="error-message-text" class="text-gray-700 mb-4 text-center">
+                <!-- Pesan error akan ditampilkan di sini -->
+            </div>
+            <div class="flex justify-center">
+                <button id="error-close-button" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline transition duration-150 ease-in-out">
+                    Tutup
+                </button>
+            </div>
+        </div>
+        </div>
+    </div>
+    
+    <script src="init.js"></script>
+    <script src="https://unpkg.com/howler@2.2.3/dist/howler.min.js"></script>
+    <script src="card.js"></script>
+    <script src="player.js"></script>
+    <script src="sounds.js"></script>
+    <script src="combinations.js"></script>
+    <script src="game.js"></script>
+</body>
+</html>
