@@ -1,0 +1,1211 @@
+// Di bagian paling atas game.js
+
+// Variabel global untuk state game
+const gameState = {
+    players: [],
+    currentPlayerIndex: 0,
+    currentPlay: null,
+    gameStarted: false,
+    gameEnded: false,
+    lastPlayerWhoPlayed: null
+};
+
+// Variabel global tambahan
+let gameStats = {
+    score: 0,
+    cardsPlayed: 0,
+    startTime: null,
+    timerInterval: null
+};
+
+// Variabel untuk menyimpan badge pemain terakhir
+let lastPlayerBadge = null;
+
+// Variabel untuk menyimpan kartu yang dipilih
+let selectedCards = [];
+
+// Inisialisasi game
+function initGame(numPlayers = 2, difficulty = 'medium') {
+    console.log(`Memulai game dengan ${numPlayers} pemain, level ${difficulty}`);
+    
+    // Reset game state
+    gameState.players = [];
+    gameState.currentPlayerIndex = 0;
+    gameState.currentPlay = null;
+    gameState.gameStarted = false;
+    gameState.gameEnded = false;
+    gameState.lastPlayerWhoPlayed = null;
+    
+    console.log('Game state direset');
+    
+    // Buat deck baru
+    const deck = new Deck();
+    deck.shuffle();
+    
+    console.log('Deck dibuat');
+    
+    // Inisialisasi pemain - pemain 0 adalah pengguna (Anda)
+    gameState.players.push(new Player('Anda', false)); // Pemain manusia (indeks 0)
+    
+    // Pemain AI mulai dari indeks 1
+    for (let i = 1; i < numPlayers; i++) {
+        gameState.players.push(new Player(`Pemain ${i}`, true)); // AI
+    }
+    
+    console.log('Pemain diinisialisasi:', gameState.players);
+    
+    // Bagikan kartu
+    const cardsPerPlayer = Math.floor(52 / numPlayers);
+    gameState.players.forEach(player => {
+        player.addCards(deck.deal(cardsPerPlayer));
+    });
+
+    console.log('Kartu dibagikan');
+    
+    // Tentukan pemain pertama (yang memiliki 3 wajik)
+    const startingPlayerIndex = findPlayerWithThreeOfDiamonds();
+    gameState.currentPlayerIndex = startingPlayerIndex;
+    
+    // Mulai game
+    gameState.gameStarted = true;
+    console.log(`Game dimulai, pemain pertama: ${gameState.currentPlayerIndex} (memiliki 3 wajik)`);
+    
+    // Inisialisasi UI
+    initUI();
+    
+    // Update UI
+    updateUI();
+    
+    // Mulai giliran AI jika bukan giliran pemain pertama
+    if (gameState.currentPlayerIndex !== 0) {
+        setTimeout(playAITurn, 1000);
+    }
+}
+
+// Fungsi timer
+function startTimer() {
+    if (gameStats.timerInterval) clearInterval(gameStats.timerInterval);
+    
+    const timeElement = document.getElementById('game-time');
+    if (!timeElement) return;
+    
+    gameStats.timerInterval = setInterval(() => {
+        const elapsed = Math.floor((Date.now() - gameStats.startTime) / 1000);
+        const minutes = Math.floor(elapsed / 60).toString().padStart(2, '0');
+        const seconds = (elapsed % 60).toString().padStart(2, '0');
+        timeElement.textContent = `${minutes}:${seconds}`;
+    }, 1000);
+}
+
+// Update tampilan UI
+function updateUI() {
+    // Update indikator giliran
+    const turnIndicator = document.getElementById('turn-indicator');
+    const currentPlayerName = document.getElementById('current-player-name');
+    
+    if (turnIndicator && currentPlayerName) {
+        // Tentukan nama pemain yang sedang giliran
+        let playerName = gameState.currentPlayerIndex === 0 ? 'Anda' : `Pemain ${gameState.currentPlayerIndex}`;
+        currentPlayerName.textContent = playerName;
+        
+        // Ubah warna indikator berdasarkan giliran
+        if (gameState.currentPlayerIndex === 0) {
+            turnIndicator.className = 'text-center py-2 mb-2 bg-yellow-500 text-white font-bold rounded-lg';
+        } else {
+            turnIndicator.className = 'text-center py-2 mb-2 bg-blue-500 text-white font-bold rounded-lg';
+        }
+    }
+    
+    // Update indikator giliran di samping nama pemain
+    // Sembunyikan semua indikator dulu
+    for (let i = 0; i < 4; i++) {
+        const turnIndicator = document.getElementById(`player-${i}-turn`);
+        if (turnIndicator) {
+            turnIndicator.classList.add('hidden');
+        }
+    }
+    
+    // Tampilkan indikator untuk pemain yang sedang giliran
+    const currentPlayerTurn = document.getElementById(`player-${gameState.currentPlayerIndex}-turn`);
+    if (currentPlayerTurn) {
+        currentPlayerTurn.classList.remove('hidden');
+    }
+    
+    // Tampilkan kartu yang sedang dimainkan
+    const playedCardsArea = document.getElementById('played-cards');
+    
+    if (!playedCardsArea) {
+        console.error('Area kartu yang dimainkan tidak ditemukan');
+        return;
+    }
+    
+    // Kosongkan area kartu yang dimainkan
+    playedCardsArea.innerHTML = '<h3 class="text-white text-center mb-2">Kartu yang Dimainkan</h3>';
+    
+    // Tampilkan kartu yang sedang dimainkan jika ada
+    if (gameState.currentPlay) {
+        const cardsDiv = document.createElement('div');
+        cardsDiv.className = 'flex flex-wrap justify-center gap-2';
+        
+        gameState.currentPlay.cards.forEach(card => {
+            const cardElement = document.createElement('div');
+            cardElement.className = 'card bg-white';
+            cardElement.innerHTML = renderCard(card);
+            cardsDiv.appendChild(cardElement);
+        });
+        
+        playedCardsArea.appendChild(cardsDiv);
+    }
+    
+    // Tampilkan tangan pemain (hanya untuk pemain manusia)
+    if (!gameState.players[0].isAI) {
+        const playerHand = document.createElement('div');
+        playerHand.className = 'mt-4 p-4 bg-green-600 rounded-lg';
+        playerHand.innerHTML = `<h3 class="text-white font-bold mb-2">Kartu Anda:</h3>`;
+        
+        const cardsDiv = document.createElement('div');
+        cardsDiv.className = 'flex flex-wrap gap-2';
+        gameState.players[0].hand.forEach((card, index) => {
+            const cardElement = document.createElement('div');
+            cardElement.className = 'card cursor-pointer hover:transform hover:-translate-y-2 transition-transform';
+            cardElement.innerHTML = renderCard(card);
+            cardElement.onclick = () => {
+                console.log('Mencoba memilih kartu index:', index);
+                
+                // Pastikan game state valid
+                if (!gameState?.players?.[0]?.hand) {
+                    console.error('Game state tidak valid');
+                    return;
+                }
+                
+                const player = gameState.players[0];
+                
+                // Validasi index
+                if (index < 0 || index >= player.hand.length) {
+                    console.error('Index kartu tidak valid:', index, 'dari total', player.hand.length);
+                    return;
+                }
+                
+                const card = player.hand[index];
+                
+                // Cari elemen kartu dengan selector yang lebih spesifik
+                const cardElement = document.querySelector(`#player-hand > .card:nth-child(${index + 1})`);
+                
+                if (!cardElement) {
+                    console.error('Elemen kartu tidak ditemukan:', {
+                        index: index,
+                        selector: `#player-hand > .card:nth-child(${index + 1})`,
+                        playerHand: player.hand,
+                        container: document.getElementById('player-hand')?.innerHTML
+                    });
+                    return;
+                }
+                
+                // Toggle seleksi
+                const isSelected = cardElement.classList.contains('selected');
+                
+                if (!isSelected) {
+                    selectedCards.push(card);
+                    cardElement.classList.add('selected');
+                } else {
+                    const selectedIndex = selectedCards.findIndex(c => 
+                        c.value === card.value && c.suit === card.suit);
+                    if (selectedIndex !== -1) {
+                        selectedCards.splice(selectedIndex, 1);
+                    }
+                    cardElement.classList.remove('selected');
+                }
+                
+                updateActionButtons();
+            };
+            cardsDiv.appendChild(cardElement);
+        });
+        
+        playerHand.appendChild(cardsDiv);
+        // Tidak perlu menambahkan ke gameArea lagi karena kita menggunakan renderPlayerHand
+    }
+    
+    // Tampilkan info pemain
+    gameState.players.forEach((player, index) => {
+        const playerInfo = document.createElement('div');
+        playerInfo.className = `mt-2 p-2 rounded ${index === gameState.currentPlayerIndex ? 'bg-yellow-500' : 'bg-green-600'}`;
+        playerInfo.innerHTML = `
+            <p class="text-white">${player.name} (${player.hand.length} kartu)</p>
+            ${player.isAI ? '<p class="text-xs text-gray-300">Komputer</p>' : ''}
+        `;
+        // Tidak perlu menambahkan info pemain ke gameArea karena kita sudah memiliki area pemain terpisah di HTML
+    });
+    
+    // Tampilkan statistik jika ada area statistik
+    const statsArea = document.getElementById('game-stats');
+    if (statsArea) {
+        statsArea.innerHTML = `
+            <p>Skor: ${gameStats.score}</p>
+            <p>Kartu dimainkan: ${gameStats.cardsPlayed}</p>
+        `;
+    }
+}
+
+// Inisialisasi UI
+function initUI() {
+    // Tombol aksi
+    const actionPanel = document.createElement('div');
+    actionPanel.className = 'action-panel';
+    
+    const playButton = document.createElement('button');
+    playButton.id = 'play-button';
+    playButton.textContent = 'Buang';
+    playButton.onclick = () => playSelectedCards();
+    
+    const passButton = document.createElement('button');
+    passButton.id = 'pass-button';
+    passButton.textContent = 'Lewat';
+    passButton.onclick = () => passTurn();
+    
+    const sortButton = document.createElement('button');
+    sortButton.id = 'sort-button';
+    sortButton.textContent = 'Urutkan';
+    sortButton.onclick = () => sortHand();
+    
+    actionPanel.append(playButton, passButton, sortButton);
+    document.body.appendChild(actionPanel);
+}
+
+// Render kartu ke HTML
+function renderCard(card) {
+    if (!card) return '';
+    
+    const suitSymbol = getSuitSymbol(card.suit);
+    const colorClass = (card.suit === '♦' || card.suit === '♥') ? 'text-red-600' : 'text-black';
+    
+    return `
+        <div class="relative w-full h-full">
+            <div class="absolute top-1 left-1 ${colorClass} text-sm font-bold">${card.value}</div>
+            <div class="absolute top-1 right-1 ${colorClass} text-sm">${suitSymbol}</div>
+            <div class="absolute bottom-1 right-1 ${colorClass} text-sm font-bold transform rotate-180">${card.value}</div>
+            <div class="absolute bottom-1 left-1 ${colorClass} text-sm transform rotate-180">${suitSymbol}</div>
+            <div class="absolute inset-0 flex items-center justify-center ${colorClass} text-2xl">${suitSymbol}</div>
+        </div>
+    `;
+}
+
+// Fungsi untuk mendapatkan simbol suit kartu
+function getSuitSymbol(suit) {
+    const suitSymbols = {
+        'Diamond': '♦',
+        'Heart': '♥',
+        'Club': '♣',
+        'Spade': '♠'
+    };
+    return suitSymbols[suit] || suit;
+}
+
+// Update tampilan tombol aksi
+function updateActionButtons() {
+    console.log('Memperbarui tombol aksi...');
+    
+    const playButton = document.getElementById('play-button');
+    const passButton = document.getElementById('pass-button');
+    const sortButton = document.getElementById('sort-button');
+    
+    if (!playButton || !passButton || !sortButton) {
+        console.error('Tombol aksi tidak ditemukan');
+        return;
+    }
+    
+    // Tombol Buang
+    if (selectedCards.length > 0) {
+        playButton.disabled = false;
+        playButton.className = 'bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-4 rounded mr-2';
+        playButton.textContent = `Buang (${selectedCards.length})`;
+    } else {
+        playButton.disabled = true;
+        playButton.className = 'bg-gray-400 text-gray-700 font-bold py-2 px-4 rounded mr-2 cursor-not-allowed';
+        playButton.textContent = 'Buang';
+    }
+    
+    // Tombol Lewat
+    passButton.disabled = false;
+    passButton.className = 'bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded mr-2';
+    
+    // Tombol Urutkan
+    sortButton.disabled = false;
+    sortButton.className = 'bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded';
+    
+    console.log('Tombol aksi berhasil diperbarui');
+}
+
+// Pemain AI melakukan giliran
+function playAITurn() {
+    // Pastikan pemain 0 tidak pernah dianggap sebagai AI
+    if (gameState.currentPlayerIndex === 0) {
+        console.error('Error: Pemain 0 (manusia) tidak boleh dianggap sebagai AI');
+        return;
+    }
+    
+    console.log(`AI Pemain ${gameState.currentPlayerIndex} sedang berpikir...`);
+    if (!gameState.gameStarted || gameState.gameEnded) return;
+    
+    const currentPlayer = gameState.players[gameState.currentPlayerIndex];
+    if (!currentPlayer.isAI) {
+        console.error(`Error: Pemain ${gameState.currentPlayerIndex} bukan AI`);
+        return;
+    }
+    
+    // Tunggu sebentar untuk efek berpikir
+    setTimeout(() => {
+        // Pastikan pemain masih AI saat timeout selesai
+        if (gameState.currentPlayerIndex === 0 || !gameState.players[gameState.currentPlayerIndex].isAI) {
+            console.error('Error: Giliran sudah berpindah ke pemain lain');
+            return;
+        }
+        
+        // Cari kartu yang valid untuk dimainkan
+        const validCard = findValidCardForAI(currentPlayer);
+        
+        if (validCard) {
+            console.log(`AI Pemain ${gameState.currentPlayerIndex} membuang kartu:`, validCard);
+            playCards(currentPlayer, [validCard], 'SINGLE');
+        } else {
+            console.log(`AI Pemain ${gameState.currentPlayerIndex} lewat giliran`);
+            passTurn(); // Gunakan passTurn untuk AI juga
+        }
+    }, 1000);
+}
+
+// Fungsi untuk mencari kartu valid untuk AI
+function findValidCardForAI(player) {
+    // Jika tidak ada kartu yang dimainkan sebelumnya (awal permainan atau setelah semua pemain lewat)
+    if (!gameState.currentPlay) {
+        // Cek apakah ini awal permainan (belum ada kartu yang dimainkan)
+        if (!gameState.lastPlay) {
+            // Cari kartu 3 wajik
+            const threeOfDiamonds = player.hand.find(card => card.value === '3' && card.suit === '♦');
+            if (threeOfDiamonds) return threeOfDiamonds;
+        } else {
+            // Jika ini setelah semua pemain lewat atau kartu 2 dimainkan, bisa membuang kartu apa saja
+            // Pilih kartu dengan nilai terendah untuk strategi
+            const values = ['3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A', '2'];
+            return player.hand.reduce((lowest, card) => 
+                values.indexOf(card.value) < values.indexOf(lowest.value) ? card : lowest
+            , player.hand[0]);
+        }
+        
+        // Jika tidak punya 3 wajik atau kartu lain, ambil kartu pertama
+        return player.hand[0];
+    }
+    
+    const lastCard = gameState.currentPlay.cards[0];
+    
+    // Jika kartu terakhir adalah As, cari kartu 2
+    if (lastCard.value === 'A') {
+        const twoCard = player.hand.find(card => card.value === '2');
+        
+        // Jika tidak punya kartu 2 dan semua pemain sudah lewat kembali ke pemain ini
+        if (!twoCard && passedPlayers.length >= gameState.players.length - 1) {
+            console.log('AI tidak punya kartu 2, tapi semua pemain sudah lewat. Membuang kartu lain.');
+            return player.hand[0]; // Ambil kartu pertama
+        }
+        
+        return twoCard; // Bisa null jika tidak punya kartu 2
+    }
+    
+    // Jika kartu terakhir adalah 2, bisa membuang kartu apa saja
+    if (lastCard.value === '2') {
+        // Pilih kartu dengan nilai terendah untuk strategi
+        const values = ['3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A', '2'];
+        return player.hand.reduce((lowest, card) => 
+            values.indexOf(card.value) < values.indexOf(lowest.value) ? card : lowest
+        , player.hand[0]);
+    }
+    
+    // Cari kartu dengan simbol yang sama dan nilai lebih tinggi
+    const values = ['3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A', '2'];
+    const lastCardValueIndex = values.indexOf(lastCard.value);
+    
+    // Cari kartu dengan simbol yang sama dan nilai lebih tinggi
+    const validCards = player.hand.filter(card => 
+        card.suit === lastCard.suit && 
+        values.indexOf(card.value) > lastCardValueIndex
+    );
+    
+    if (validCards.length > 0) {
+        // Ambil kartu dengan nilai terendah dari kartu valid
+        return validCards.reduce((lowest, card) => 
+            values.indexOf(card.value) < values.indexOf(lowest.value) ? card : lowest
+        , validCards[0]);
+    }
+    
+    // Jika tidak ada kartu valid, cari kartu 2
+    const twoCard = player.hand.find(card => card.value === '2');
+    return twoCard; // Bisa null jika tidak punya kartu valid atau kartu 2
+}
+
+// Fungsi untuk mencari pemain yang memiliki kartu 3 wajik
+function findPlayerWithThreeOfDiamonds() {
+    for (let i = 0; i < gameState.players.length; i++) {
+        const player = gameState.players[i];
+        const hasThreeOfDiamonds = player.hand.some(card => card.value === '3' && card.suit === '♦');
+        
+        if (hasThreeOfDiamonds) {
+            console.log(`Pemain ${i} memiliki kartu 3 wajik`);
+            return i;
+        }
+    }
+    
+    // Jika tidak ada yang punya 3 wajik (sangat jarang terjadi), mulai dari pemain 0
+    console.log('Tidak ada pemain yang memiliki kartu 3 wajik, pemain 0 mulai duluan');
+    return 0;
+}
+
+// Helper untuk AI memilih kombinasi pembuka
+function chooseAIOpeningCombination(player) {
+    const combinations = [
+        CombinationTypes.SINGLE,
+        CombinationTypes.TRIPLET,
+        CombinationTypes.STRAIGHT,
+        CombinationTypes.FLUSH
+    ];
+    
+    // Cari kombinasi terbaik yang dimiliki
+    for (const combo of combinations) {
+        if (getCardsForCombination(player, combo).length > 0) {
+            return combo;
+        }
+    }
+    
+    return CombinationTypes.SINGLE;
+}
+
+// Helper untuk mendapatkan kartu sesuai kombinasi
+function getCardsForCombination(player, combinationType) {
+    // Implementasi sederhana - bisa dikembangkan lebih canggih
+    switch(combinationType) {
+        case CombinationTypes.SINGLE:
+            return [player.hand[0]];
+        case CombinationTypes.TRIPLET:
+            return findTriplet(player.hand);
+        case CombinationTypes.STRAIGHT:
+            return findStraight(player.hand, 3);
+        case CombinationTypes.FLUSH:
+            return findFlush(player.hand, 3);
+        default:
+            return [];
+    }
+}
+
+// Helper untuk menemukan triplet
+function findTriplet(cards) {
+    const valueCounts = {};
+    cards.forEach(card => {
+        valueCounts[card.value] = (valueCounts[card.value] || 0) + 1;
+    });
+    
+    for (const [value, count] of Object.entries(valueCounts)) {
+        if (count >= 3) {
+            return cards.filter(card => card.value === value).slice(0, 3);
+        }
+    }
+    
+    return [];
+}
+
+// Helper untuk menemukan straight
+function findStraight(cards, minLength = 3) {
+    // Implementasi sederhana - bisa dikembangkan
+    if (cards.length < minLength) return [];
+    return cards.slice(0, minLength);
+}
+
+// Helper untuk menemukan flush
+function findFlush(cards, minLength = 3) {
+    const suitCounts = {};
+    cards.forEach(card => {
+        suitCounts[card.suit] = (suitCounts[card.suit] || 0) + 1;
+    });
+    
+    for (const [suit, count] of Object.entries(suitCounts)) {
+        if (count >= minLength) {
+            return cards.filter(card => card.suit === suit).slice(0, minLength);
+        }
+    }
+    
+    return [];
+}
+
+// Helper untuk menemukan kartu bom (Four of a Kind)
+function findBombCards(player) {
+    const valueCounts = {};
+    player.hand.forEach(card => {
+        valueCounts[card.value] = (valueCounts[card.value] || 0) + 1;
+    });
+    
+    for (const [value, count] of Object.entries(valueCounts)) {
+        if (count === 4) {
+            return player.hand.filter(card => card.value === value);
+        }
+    }
+    
+    return null;
+}
+
+// Helper untuk mendapatkan counter move
+function getCounterMove(player, currentPlay) {
+    // Implementasi sederhana - hanya untuk single card
+    if (currentPlay.combinationType === CombinationTypes.SINGLE) {
+        const playableCards = player.hand.filter(card => 
+            card.isHigherThan(currentPlay.cards[0])
+        );
+        
+        if (playableCards.length > 0) {
+            return [[playableCards[0]], CombinationTypes.SINGLE];
+        }
+    }
+    
+    return [[], null];
+}
+
+// Pemain manusia memilih kartu
+function selectCard(card) {
+    // Implementasi pemilihan kartu oleh pemain manusia
+    console.log('Kartu dipilih:', card.toString());
+    // Untuk sementara, langsung mainkan kartu yang dipilih
+    playCards(gameState.players[0], [card], 'single');
+}
+
+// Fungsi untuk memvalidasi play berikutnya
+function validateNextPlay(player, cards, combinationType) {
+    console.log('Validasi kartu yang akan dimainkan:', cards);
+    
+    // Validasi parameter input
+    if (!cards || !Array.isArray(cards) || cards.length === 0) {
+        console.error('Parameter input tidak valid');
+        return false;
+    }
+    
+    // Pastikan semua kartu valid
+    if (cards.some(card => !card || !card.value || !card.suit)) {
+        console.error('Ada kartu yang tidak valid');
+        return false;
+    }
+    
+    // Hanya boleh membuang 1 kartu pada satu waktu
+    if (cards.length > 1) {
+        console.error('Hanya boleh membuang 1 kartu pada satu waktu');
+        return false;
+    }
+    
+    const card = cards[0];
+    
+    // Jika tidak ada kartu yang dimainkan sebelumnya
+    if (!gameState.currentPlay) {
+        // Jika ini adalah awal permainan (belum ada kartu yang dimainkan)
+        if (!gameState.lastPlay) {
+            // Pemain pertama harus membuang 3 wajik di awal permainan
+            if (card.value === '3' && card.suit === '♦') {
+                return true;
+            } else {
+                console.error('Kartu pertama harus 3 wajik');
+                return false;
+            }
+        } else {
+            // Jika ini setelah kartu 2 dimainkan, pemain boleh membuang kartu apa saja
+            console.log('Setelah kartu 2, pemain boleh membuang kartu apa saja');
+            return true;
+        }
+    }
+    
+    const lastCard = gameState.currentPlay.cards[0];
+    
+    // Jika kartu terakhir adalah As
+    if (lastCard.value === 'A') {
+        // Harus membuang kartu 2 jika punya
+        if (card.value === '2') {
+            return true;
+        } else {
+            // Cek apakah pemain memiliki kartu 2
+            const hasTwo = player.hand.some(c => c.value === '2');
+            if (hasTwo) {
+                console.error('Anda memiliki kartu 2, harus membuang kartu 2');
+                return false;
+            } else {
+                // Jika semua pemain sudah lewat (kembali ke pemain yang membuang As)
+                if (player === gameState.lastPlay.player) {
+                    // Pemain yang membuang As boleh membuang kartu apa saja
+                    console.log('Semua pemain lewat, pemain yang membuang As boleh membuang kartu apa saja');
+                    return true;
+                } else {
+                    // Jika tidak punya kartu 2, pemain harus lewat
+                    console.error('Anda tidak memiliki kartu 2, harus lewat');
+                    return false;
+                }
+            }
+        }
+    }
+    
+    // Jika pemain membuang kartu 2, pemain tersebut dapat membuang kartu apa saja selanjutnya
+    if (card.value === '2') {
+        return true;
+    }
+    
+    // Aturan normal: harus membuang kartu dengan simbol yang sama dan nilai lebih besar
+    if (card.suit === lastCard.suit) {
+        const values = ['3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A', '2'];
+        const lastCardValueIndex = values.indexOf(lastCard.value);
+        const currentCardValueIndex = values.indexOf(card.value);
+        
+        if (currentCardValueIndex > lastCardValueIndex) {
+            return true;
+        } else {
+            console.error('Nilai kartu harus lebih besar dari kartu sebelumnya');
+            return false;
+        }
+    } else {
+        console.error('Simbol kartu harus sama dengan kartu sebelumnya');
+        return false;
+    }
+}
+
+// Fungsi untuk menentukan kombinasi kartu
+function determineCombination(cards) {
+    if (!cards || cards.length === 0) return CombinationTypes.SINGLE;
+    
+    if (cards.length === 1) return CombinationTypes.SINGLE;
+    if (cards.length === 3 && cards.every(c => c.value === cards[0].value)) return CombinationTypes.TRIPLET;
+    if (cards.length === 4 && cards.every(c => c.value === cards[0].value)) return CombinationTypes.QUARTET;
+    
+    // Tambahkan validasi untuk kombinasi lainnya
+    return CombinationTypes.SINGLE;
+}
+
+// Fungsi untuk menangani permainan kartu 2
+function handleTwoCardPlay(player, card) {
+    if (card.value !== '2') return false;
+    
+    // Set currentPlay ke null untuk memulai ronde baru
+    gameState.currentPlay = null;
+    gameState.lastPlayerWhoPlayed = player;
+    
+    // Update UI
+    const playedCardsArea = document.getElementById('played-cards');
+    if (playedCardsArea) playedCardsArea.innerHTML = '';
+    
+    return true;
+}
+
+// Fungsi untuk menangani bom (quartet)
+function handleBombPlay(player, cards) {
+    if (cards.length !== 4 || !cards.every(c => c.value === cards[0].value)) {
+        return false;
+    }
+    
+    // Pemain langsung menang
+    endGame(player);
+    return true;
+}
+
+// Mainkan kartu
+function playCards(player, cards, combinationType) {
+    console.log('Memainkan kartu:', cards);
+    
+    // Pastikan elemen UI ada
+    const playedCardsArea = document.getElementById('played-cards');
+    if (!playedCardsArea) {
+        console.error('Error: Area kartu yang dimainkan tidak ditemukan');
+        return false;
+    }
+    
+    // Validasi kepemilikan kartu
+    if (!player.hasCards(cards)) {
+        console.error('Pemain tidak memiliki kartu yang dipilih');
+        return false;
+    }
+    
+    // Validasi aturan permainan (disederhanakan)
+    if (!validateNextPlay(player, cards, combinationType)) {
+        console.error('Kombinasi kartu tidak valid');
+        return false;
+    }
+    
+    // Hapus pemain dari daftar pemain yang lewat jika ada
+    const playerIndex = gameState.players.indexOf(player);
+    const passedIndex = passedPlayers.indexOf(playerIndex);
+    if (passedIndex !== -1) {
+        passedPlayers.splice(passedIndex, 1);
+        console.log(`Pemain ${playerIndex} dihapus dari daftar pemain yang lewat`);
+    }
+
+    // Hapus kartu dari tangan pemain
+    player.removeCards(cards);
+
+    // Kosongkan area kartu yang dimainkan
+    playedCardsArea.innerHTML = '';
+    
+    // Buat container untuk kartu
+    const cardsContainer = document.createElement('div');
+    cardsContainer.className = 'flex flex-col items-center';
+    
+    // Buat container untuk kartu yang dimainkan
+    const cardsDiv = document.createElement('div');
+    cardsDiv.className = 'flex flex-wrap justify-center gap-2 mb-3';
+    
+    // Tambahkan kartu ke container
+    cards.forEach(card => {
+        const cardElement = document.createElement('div');
+        cardElement.className = 'card bg-white';
+        cardElement.innerHTML = renderCard(card);
+        cardsDiv.appendChild(cardElement);
+        
+        // Jika kartu adalah 2, tambahkan ke area kartu 2 yang telah dimainkan
+        if (card.value === '2') {
+            const playedTwosArea = document.getElementById('played-twos').querySelector('div');
+            if (playedTwosArea) {
+                const twoCardElement = document.createElement('div');
+                twoCardElement.className = 'card bg-white relative';
+                twoCardElement.innerHTML = renderCard(card);
+                
+                // Tambahkan nama pemain yang membuang kartu 2
+                const playerLabel = document.createElement('div');
+                playerLabel.className = 'absolute -bottom-5 left-0 right-0 text-center text-xs text-white bg-black bg-opacity-70 p-1';
+                playerLabel.textContent = player.isAI ? player.name : 'Anda';
+                twoCardElement.appendChild(playerLabel);
+                
+                playedTwosArea.appendChild(twoCardElement);
+            }
+        }
+    });
+    
+    cardsContainer.appendChild(cardsDiv);
+    
+    // Tambahkan badge pemain di bawah kartu
+    const badgeContainer = document.createElement('div');
+    badgeContainer.className = 'flex justify-center';
+    badgeContainer.id = 'player-badges';
+    
+    // Simpan badge pemain saat ini ke variabel global
+    const currentPlayerName = player.isAI ? player.name : 'Anda';
+    
+    // Tambahkan badge pemain yang membuang kartu
+    const playerBadge = document.createElement('div');
+    playerBadge.className = 'bg-blue-700 text-white font-bold py-1 px-3 rounded-full inline-block mx-auto';
+    playerBadge.textContent = currentPlayerName;
+    
+    // Jika ada badge pemain sebelumnya, tampilkan juga
+    if (lastPlayerBadge && lastPlayerBadge !== currentPlayerName) {
+        const previousPlayerBadge = document.createElement('div');
+        previousPlayerBadge.className = 'bg-gray-700 text-white font-bold py-1 px-3 rounded-full inline-block mx-2';
+        previousPlayerBadge.textContent = lastPlayerBadge;
+        badgeContainer.appendChild(previousPlayerBadge);
+    }
+    
+    // Update variabel global dengan pemain saat ini
+    lastPlayerBadge = currentPlayerName;
+    
+    badgeContainer.appendChild(playerBadge);
+    cardsContainer.appendChild(badgeContainer);
+    
+    // Tambahkan container ke area kartu yang dimainkan
+    playedCardsArea.appendChild(cardsContainer);
+
+    // Update game state
+    gameState.currentPlay = {
+        player: player,
+        cards: cards,
+        combinationType: combinationType
+    };
+
+    // Reset seleksi kartu
+    selectedCards = [];
+    document.querySelectorAll('.card.selected').forEach(card => {
+        card.classList.remove('selected');
+    });
+    updateActionButtons();
+    
+    // Mainkan suara
+    if (typeof playSound === 'function') {
+        playSound('cardPlay');
+    }
+
+    // Pindah ke pemain berikutnya kecuali jika kartu yang dimainkan adalah kartu 2
+    if (cards[0].value !== '2') {
+        // Gunakan setTimeout agar UI diperbarui terlebih dahulu
+        setTimeout(() => {
+            console.log('Pindah ke pemain berikutnya setelah membuang kartu');
+            nextPlayer();
+        }, 1000);
+    } else {
+        // Jika kartu 2, pemain yang sama mendapat giliran lagi
+        console.log('Kartu 2 dimainkan, pemain yang sama mendapat giliran lagi');
+        
+        // Reset currentPlay agar pemain bisa membuang kartu apa saja
+        gameState.lastPlay = {...gameState.currentPlay};
+        gameState.currentPlay = null;
+        updateUI();
+        
+        // Simpan pemain yang membuang kartu 2 untuk mencegah perpindahan giliran yang tidak diinginkan
+        const playerWhoPlayed2 = gameState.currentPlayerIndex;
+        
+        // Jika pemain adalah AI, beri kesempatan untuk membuang kartu lagi
+        if (player.isAI) {
+            setTimeout(() => {
+                // Pastikan pemain yang mendapat giliran lagi adalah pemain yang membuang kartu 2
+                // dan pemain tersebut masih AI
+                if (gameState.players[gameState.currentPlayerIndex].isAI) {
+                    console.log(`AI Pemain ${gameState.currentPlayerIndex} mendapat giliran lagi setelah membuang kartu 2`);
+                    playAITurn();
+                }
+            }, 1500);
+        } else {
+            // Jika pemain manusia, tampilkan pesan bahwa mereka bisa membuang kartu lagi
+            console.log('Anda mendapat giliran lagi setelah membuang kartu 2');
+            // Perbarui tombol aksi untuk pemain manusia
+            updateActionButtons();
+        }
+    }
+
+    return true;
+}
+
+// Fungsi update skor
+function updateScore(player, cards, combinationType) {
+    let points = 0;
+    
+    switch(combinationType) {
+        case CombinationTypes.SINGLE: points = 1; break;
+        case CombinationTypes.TRIPLET: points = 5; break;
+        case CombinationTypes.QUARTET: points = 20; break;
+        case CombinationTypes.STRAIGHT: points = 10; break;
+        case CombinationTypes.FLUSH: points = 15; break;
+        case CombinationTypes.STRAIGHT_FLUSH: points = 30; break;
+        case CombinationTypes.FULL_HOUSE: points = 25; break;
+    }
+    
+    if (player.name === 'Anda') {
+        gameStats.score += points;
+        const scoreElement = document.getElementById('score');
+        if (scoreElement) {
+            scoreElement.textContent = gameStats.score;
+        }
+    }
+}
+
+// Variabel untuk melacak pemain yang lewat
+let passedPlayers = [];
+
+// Fungsi untuk pindah ke pemain berikutnya
+function nextPlayer() {
+    // Cek apakah kartu terakhir yang dimainkan adalah kartu 2
+    let resetTurn = false;
+    if (gameState.currentPlay && gameState.currentPlay.cards.length > 0) {
+        const lastCard = gameState.currentPlay.cards[0];
+        if (lastCard.value === '2') {
+            // Jika kartu 2, pemain yang sama mendapat giliran lagi
+            console.log('Kartu 2 dimainkan, pemain yang sama mendapat giliran lagi');
+            resetTurn = true;
+            
+            // Reset currentPlay agar pemain bisa membuang kartu apa saja
+            gameState.lastPlay = {...gameState.currentPlay};
+            gameState.currentPlay = null;
+            
+            // Reset daftar pemain yang lewat
+            passedPlayers = [];
+            
+            // Update UI
+            updateUI();
+            return; // Keluar dari fungsi, pemain yang sama tetap mendapat giliran
+        }
+    }
+    
+    // Simpan indeks pemain saat ini
+    const currentIndex = gameState.currentPlayerIndex;
+    
+    // Pindah ke pemain berikutnya (searah jarum jam)
+    gameState.currentPlayerIndex = (gameState.currentPlayerIndex + 1) % gameState.players.length;
+    
+    // Cek apakah sudah kembali ke pemain yang terakhir membuang kartu dan ada pemain yang lewat
+    if (gameState.lastPlay && 
+        gameState.currentPlayerIndex === gameState.players.indexOf(gameState.lastPlay.player) && 
+        passedPlayers.length > 0) {
+        
+        console.log(`Semua pemain lewat (${passedPlayers.length} pemain), kembali ke pemain yang terakhir membuang kartu`);
+        
+        // Jika pemain terakhir yang membuang kartu adalah AI dan kartu terakhir adalah As
+        if (gameState.players[gameState.currentPlayerIndex].isAI && 
+            gameState.currentPlay && 
+            gameState.currentPlay.cards[0].value === 'A') {
+            
+            // Biarkan AI membuang kartu apa saja
+            console.log('AI dapat membuang kartu apa saja setelah semua pemain lewat');
+            gameState.currentPlay = null;
+        } else {
+            // Reset currentPlay agar pemain bisa membuang kartu apa saja
+            gameState.currentPlay = null;
+        }
+        
+        // Reset daftar pemain yang lewat
+        passedPlayers = [];
+    }
+    
+    console.log(`Giliran berpindah dari Pemain ${currentIndex} ke Pemain ${gameState.currentPlayerIndex}`);
+    
+    // Update UI
+    updateUI();
+    
+    // Jika pemain berikutnya adalah AI, jalankan giliran AI
+    // Pastikan pemain 0 tidak pernah dianggap sebagai AI
+    if (gameState.currentPlayerIndex !== 0 && gameState.players[gameState.currentPlayerIndex].isAI) {
+        setTimeout(playAITurn, 1000);
+    }
+}
+
+// Akhiri permainan
+function endGame(winner) {
+    gameState.gameEnded = true;
+    clearInterval(gameStats.timerInterval);
+    
+    if (winner.name === 'Anda') {
+        playSound('win');
+        alert(`Selamat! Anda menang dengan skor ${gameStats.score}!`);
+    } else {
+        playSound('lose');
+        alert(`${winner.name} menang! Skor Anda: ${gameStats.score}`);
+    }
+    
+    // Tampilkan statistik
+    document.getElementById('game-stats').classList.remove('hidden');
+}
+
+// Event listener untuk tombol aksi
+document.addEventListener('DOMContentLoaded', () => {
+    // Inisialisasi tombol aksi
+    const playButton = document.getElementById('play-button');
+    const passButton = document.getElementById('pass-button');
+    const sortButton = document.getElementById('sort-button');
+    
+    if (playButton) {
+        playButton.addEventListener('click', playSelectedCards);
+    }
+    
+    if (passButton) {
+        passButton.addEventListener('click', passTurn);
+    }
+    
+    if (sortButton) {
+        sortButton.addEventListener('click', sortHand);
+    }
+    
+    // Inisialisasi suara
+    initSounds();
+});
+
+// Mulai game saat halaman dimuat
+window.onload = () => {
+    initGame(4, 'easy');
+};
+
+// Fungsi untuk memainkan kartu yang dipilih
+function playSelectedCards() {
+    console.log('Mencoba memainkan kartu yang dipilih:', selectedCards);
+    
+    if (selectedCards.length === 0) {
+        console.log('Tidak ada kartu yang dipilih');
+        return;
+    }
+    
+    const currentPlayer = gameState.players[0]; // Selalu gunakan pemain utama (player 0)
+    const combinationType = determineCombination(selectedCards);
+    
+    console.log('Kombinasi kartu:', combinationType);
+    console.log('Kartu pemain:', currentPlayer.hand);
+    
+    // Verifikasi kartu ada di tangan pemain
+    const allCardsInHand = selectedCards.every(selectedCard => 
+        currentPlayer.hand.some(handCard => 
+            handCard.value === selectedCard.value && 
+            handCard.suit === selectedCard.suit
+        )
+    );
+    
+    if (!allCardsInHand) {
+        console.error('Beberapa kartu yang dipilih tidak ada di tangan pemain');
+        return;
+    }
+    
+    // Salin kartu yang dipilih dengan referensi yang benar dari tangan pemain
+    const cardsToPlay = selectedCards.map(selectedCard => {
+        const cardIndex = currentPlayer.hand.findIndex(handCard => 
+            handCard.value === selectedCard.value && 
+            handCard.suit === selectedCard.suit
+        );
+        return cardIndex !== -1 ? currentPlayer.hand[cardIndex] : null;
+    }).filter(card => card !== null);
+    
+    console.log('Kartu yang akan dimainkan:', cardsToPlay);
+    
+    if (playCards(currentPlayer, cardsToPlay, combinationType)) {
+        console.log('Kartu berhasil dimainkan');
+        
+        // Update tampilan tangan pemain
+        renderPlayerHand(currentPlayer);
+        
+        // Reset seleksi
+        selectedCards = [];
+        updateActionButtons();
+        
+        // Cek jika pemain menang
+        if (currentPlayer.hand.length === 0) {
+            endGame(currentPlayer);
+            return;
+        }
+        
+        // Jangan pindah ke pemain berikutnya jika kartu yang dimainkan adalah kartu 2
+        // Perpindahan giliran sudah ditangani di fungsi playCards
+        // nextPlayer(); -- Komentar baris ini untuk mencegah perpindahan giliran ganda
+    } else {
+        console.error('Gagal memainkan kartu');
+    }
+}
+
+// Render tangan pemain
+function renderPlayerHand(player) {
+    console.log('Memulai render tangan pemain');
+    
+    const handContainer = document.getElementById('player-hand');
+    if (!handContainer) {
+        console.error('Player hand container tidak ditemukan');
+        return;
+    }
+    
+    // Kosongkan container
+    handContainer.innerHTML = '';
+    
+    // Render setiap kartu
+    player.hand.forEach((card, index) => {
+        const cardElement = document.createElement('div');
+        cardElement.className = 'card';
+        cardElement.innerHTML = renderCard(card);
+        
+        // Tambahkan event listener langsung
+        cardElement.addEventListener('click', () => {
+            console.log(`Kartu index ${index} diklik`);
+            
+            // Pastikan game state valid
+            if (!gameState?.players?.[0]?.hand) {
+                console.error('Game state tidak valid');
+                return;
+            }
+            
+            const player = gameState.players[0];
+            
+            // Validasi index
+            if (index < 0 || index >= player.hand.length) {
+                console.error('Index kartu tidak valid:', index, 'dari total', player.hand.length);
+                return;
+            }
+            
+            const card = player.hand[index];
+            
+            // Cari elemen kartu dengan selector yang lebih spesifik
+            const cardElement = document.querySelector(`#player-hand > .card:nth-child(${index + 1})`);
+            
+            if (!cardElement) {
+                console.error('Elemen kartu tidak ditemukan:', {
+                    index: index,
+                    selector: `#player-hand > .card:nth-child(${index + 1})`,
+                    playerHand: player.hand,
+                    container: document.getElementById('player-hand')?.innerHTML
+                });
+                return;
+            }
+            
+            // Toggle seleksi
+            } else {
+                turnIndicator.classList.remove('active');
+            }
+        }
+    });
+    
+    // Pastikan badge pemain terakhir tetap ditampilkan saat giliran berpindah
+    const playedCardsArea = document.getElementById('played-cards');
+    if (playedCardsArea && lastPlayerBadge && !document.getElementById('player-badges')) {
+        // Jika area kartu ada tapi tidak ada badge, tambahkan badge
+        const badgeContainer = document.createElement('div');
+        badgeContainer.className = 'flex justify-center';
+        badgeContainer.id = 'player-badges';
+        
+        const playerBadge = document.createElement('div');
+        playerBadge.className = 'bg-blue-700 text-white font-bold py-1 px-3 rounded-full inline-block mx-auto';
+        playerBadge.textContent = lastPlayerBadge;
+        
+        badgeContainer.appendChild(playerBadge);
+        playedCardsArea.appendChild(badgeContainer);
+
+// Inisialisasi UI
+function initUI() {
+    console.log('Inisialisasi UI...');
+    
+    // Render tangan pemain utama
+    renderPlayerHand(gameState.players[0]);
+    
+    // Render tangan pemain lawan
+    for (let i = 1; i < gameState.players.length; i++) {
+        renderOpponentHand(gameState.players[i], i);
+    }
+    
+    // Update tombol aksi
+    updateActionButtons();
+}
+
+// Render tangan lawan
+function renderOpponentHand(player, playerIndex) {
+    console.log(`Merender tangan pemain ${playerIndex}...`);
+    
+    const opponentContainer = document.getElementById(`player-${playerIndex}-cards`);
+    if (!opponentContainer) {
+        console.error(`Container untuk pemain ${playerIndex} tidak ditemukan`);
+        return;
+    }
+    
+    opponentContainer.innerHTML = '';
+    
+    // Tampilkan kartu tertutup untuk lawan
+    for (let i = 0; i < player.hand.length; i++) {
+        const cardBack = document.createElement('div');
+        cardBack.className = 'card bg-red-800 border border-white';
+        cardBack.style.margin = '0 -15px 0 0';
+        opponentContainer.appendChild(cardBack);
+    }
+}
+
+// Fungsi untuk lewat giliran
+function passTurn() {
+    console.log(`Pemain ${gameState.currentPlayerIndex} melewati giliran`);
+    
+    // Tambahkan pemain saat ini ke daftar pemain yang lewat
+    if (!passedPlayers.includes(gameState.currentPlayerIndex)) {
+        passedPlayers.push(gameState.currentPlayerIndex);
+    }
+    
+    // Mainkan suara hanya untuk pemain manusia
+    if (gameState.currentPlayerIndex === 0) {
+        playSound('pass');
+        selectedCards = [];
+        updateActionButtons();
+    }
+    
+    // Pindah ke pemain berikutnya
+    setTimeout(() => {
+        nextPlayer();
+    }, 500);
+}
+
+// Fungsi untuk mengurutkan kartu
+function sortHand() {
+    console.log('Mengurutkan kartu...');
+    if (gameState.currentPlayerIndex !== 0) return;
+    
+    const player = gameState.players[0];
+    player.sortHand();
+    renderPlayerHand(player);
+    playSound('sort');
+}
