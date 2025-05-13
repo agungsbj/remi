@@ -1498,8 +1498,36 @@ function validateNextPlay(player, cards, combinationType) {
         gameState.firstTurn = false;
         return true;
     }
+    
+    // TAMBAHAN: Validasi untuk kartu tunggal - harus sama jenis (suit) dan nilai lebih tinggi
+    if (gameState.currentPlay && combinationType === CombinationTypes.SINGLE && 
+        gameState.currentPlay.type === CombinationTypes.SINGLE) {
         
-    // Jika bukan giliran pertama, pemain bebas memainkan kartu apa saja
+        const currentCard = gameState.currentPlay.cards[0];
+        const newCard = cards[0];
+        
+        // Kartu harus sama jenisnya (suit)
+        if (currentCard.suit !== newCard.suit) {
+            console.error(`Kartu harus sama jenisnya: ${currentCard.suit}`);
+            showErrorMessage(`Anda harus memainkan kartu jenis ${currentCard.suit}`);
+            return false;
+        }
+        
+        // Kartu harus bernilai lebih tinggi
+        const currentValue = Card.getNumericValue(currentCard.value);
+        const newValue = Card.getNumericValue(newCard.value);
+        
+        if (newValue <= currentValue) {
+            console.error(`Kartu harus bernilai lebih tinggi dari ${currentCard.value}`);
+            showErrorMessage(`Anda harus memainkan kartu bernilai lebih tinggi dari ${currentCard.value}`);
+            return false;
+        }
+        
+        console.log('Kartu tunggal valid: sama jenis dan nilai lebih tinggi');
+        return true;
+    }
+        
+    // Jika bukan giliran pertama dan bukan kartu tunggal, pemain bebas memainkan kartu apa saja
     return true;
 }
     
@@ -2202,17 +2230,35 @@ function updateCardHistoryDisplay() {
         const cardsContainer = document.createElement('div');
         cardsContainer.className = 'flex flex-wrap gap-1 ml-auto';
         
-        // Tambahkan representasi visual kartu yang lebih sederhana
+        // Tambahkan representasi visual kartu sama seperti di area utama
         item.cards.forEach(card => {
             const miniCard = document.createElement('div');
-            miniCard.className = 'mini-card inline-block w-6 h-8 bg-white rounded border border-gray-300 relative';
+            miniCard.className = 'mini-card inline-block w-8 h-12 bg-white rounded border border-gray-300 relative';
             
-            // Tentukan warna berdasarkan jenis kartu
-            const colorClass = (card.suit === '♦' || card.suit === '♥') ? 'text-red-600' : 'text-black';
+            // Gunakan fungsi renderCard yang sama dengan kartu di area utama
+            // tetapi dengan ukuran lebih kecil
+            let suit = card.suit;
+            
+            // Konversi suit lama jika perlu
+            if (card.suit === '♦') suit = 'wajik';
+            if (card.suit === '♣') suit = 'keriting';
+            if (card.suit === '♥') suit = 'love';
+            if (card.suit === '♠') suit = 'skop';
+            
+            // Dapatkan emoji suit dari class Card
+            const suitSymbol = Card.getSuitEmoji(suit);
+            
+            // Tentukan warna berdasarkan suit
+            const colorClass = (suit === 'wajik' || suit === 'love') ? 'text-red-600' : 'text-black';
             
             miniCard.innerHTML = `
-                <div class="absolute top-0 left-0 ${colorClass} text-xs font-bold p-0.5">${card.value}</div>
-                <div class="absolute bottom-0 right-0 ${colorClass} text-xs font-bold p-0.5">${card.suit}</div>
+                <div class="relative w-full h-full">
+                    <div class="absolute top-0 left-0 ${colorClass} text-xs font-bold">${card.value}</div>
+                    <div class="absolute top-0 right-0 ${colorClass} text-xs">${suitSymbol}</div>
+                    <div class="absolute bottom-0 right-0 ${colorClass} text-xs font-bold transform rotate-180">${card.value}</div>
+                    <div class="absolute bottom-0 left-0 ${colorClass} text-xs transform rotate-180">${suitSymbol}</div>
+                    <div class="absolute inset-0 flex items-center justify-center ${colorClass} text-sm">${suitSymbol}</div>
+                </div>
             `;
             cardsContainer.appendChild(miniCard);
         });

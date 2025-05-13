@@ -14,6 +14,11 @@ class Card {
         return ['wajik', 'keriting', 'love', 'skop'];
     }
     
+    // Mendapatkan nilai numerik kartu untuk perbandingan
+    static getNumericValue(value) {
+        return this.getValuesOrder().indexOf(value);
+    }
+    
     // Fungsi untuk mendapatkan emoji suit
     static getSuitEmoji(suit) {
         switch(suit) {
