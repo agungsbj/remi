@@ -320,6 +320,35 @@
     </style>
 </head>
 <body>
+    <!-- Layar Menu Awal -->
+    <div id="start-menu" class="fixed inset-0 bg-gradient-to-br from-blue-900 to-black flex items-center justify-center z-50">
+        <div class="bg-white bg-opacity-90 rounded-lg p-8 max-w-md text-center shadow-2xl transform transition-all">
+            <h1 class="text-4xl font-bold mb-6 text-blue-800">Remi Card Game</h1>
+            
+            <div class="mb-6">
+                <h3 class="text-lg font-semibold mb-2 text-gray-700">Jumlah Pemain</h3>
+                <div class="flex justify-center space-x-4">
+                    <button class="player-count-btn w-12 h-12 rounded-full bg-blue-100 hover:bg-blue-200 focus:bg-blue-500 focus:text-white focus:outline-none transition-colors" data-count="2">2</button>
+                    <button class="player-count-btn w-12 h-12 rounded-full bg-blue-100 hover:bg-blue-200 focus:bg-blue-500 focus:text-white focus:outline-none transition-colors" data-count="3">3</button>
+                    <button class="player-count-btn w-12 h-12 rounded-full bg-blue-100 hover:bg-blue-200 focus:bg-blue-500 focus:text-white focus:outline-none transition-colors active" data-count="4">4</button>
+                </div>
+            </div>
+            
+            <div class="mb-8">
+                <h3 class="text-lg font-semibold mb-2 text-gray-700">Level Kesulitan</h3>
+                <div class="flex justify-center space-x-4">
+                    <button class="difficulty-btn px-4 py-2 rounded-lg bg-green-100 hover:bg-green-200 focus:bg-green-500 focus:text-white focus:outline-none transition-colors" data-difficulty="easy">Mudah</button>
+                    <button class="difficulty-btn px-4 py-2 rounded-lg bg-yellow-100 hover:bg-yellow-200 focus:bg-yellow-500 focus:text-white focus:outline-none transition-colors active" data-difficulty="medium">Sedang</button>
+                    <button class="difficulty-btn px-4 py-2 rounded-lg bg-red-100 hover:bg-red-200 focus:bg-red-500 focus:text-white focus:outline-none transition-colors" data-difficulty="hard">Sulit</button>
+                </div>
+            </div>
+            
+            <button id="start-game-button" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-full transition duration-300 transform hover:scale-105 shadow-lg">
+                Mulai Permainan
+            </button>
+        </div>
+    </div>
+    
     <!-- Pop-up pemenang -->
     <div id="winner-popup" class="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 hidden">
         <div class="bg-white rounded-lg p-8 max-w-md text-center">
@@ -522,6 +551,84 @@
                     overlay.classList.remove('active');
                 }
             });
+        });
+        
+        // Variabel untuk menyimpan pilihan pemain
+        let selectedPlayerCount = 4; // Default: 4 pemain
+        let selectedDifficulty = 'medium'; // Default: level sedang
+        
+        // Event handler untuk tombol jumlah pemain
+        document.querySelectorAll('.player-count-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                // Hapus class active dari semua tombol
+                document.querySelectorAll('.player-count-btn').forEach(b => {
+                    b.classList.remove('active', 'bg-blue-500', 'text-white');
+                    b.classList.add('bg-blue-100');
+                });
+                
+                // Tambahkan class active ke tombol yang diklik
+                this.classList.add('active', 'bg-blue-500', 'text-white');
+                this.classList.remove('bg-blue-100');
+                
+                // Simpan jumlah pemain yang dipilih
+                selectedPlayerCount = parseInt(this.getAttribute('data-count'));
+                console.log('Jumlah pemain dipilih:', selectedPlayerCount);
+            });
+        });
+        
+        // Event handler untuk tombol level kesulitan
+        document.querySelectorAll('.difficulty-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                // Hapus class active dari semua tombol
+                document.querySelectorAll('.difficulty-btn').forEach(b => {
+                    b.classList.remove('active', 'bg-green-500', 'bg-yellow-500', 'bg-red-500', 'text-white');
+                    if (b.getAttribute('data-difficulty') === 'easy') {
+                        b.classList.add('bg-green-100');
+                    } else if (b.getAttribute('data-difficulty') === 'medium') {
+                        b.classList.add('bg-yellow-100');
+                    } else {
+                        b.classList.add('bg-red-100');
+                    }
+                });
+                
+                // Tambahkan class active ke tombol yang diklik
+                this.classList.add('active', 'text-white');
+                if (this.getAttribute('data-difficulty') === 'easy') {
+                    this.classList.add('bg-green-500');
+                } else if (this.getAttribute('data-difficulty') === 'medium') {
+                    this.classList.add('bg-yellow-500');
+                } else {
+                    this.classList.add('bg-red-500');
+                }
+                
+                // Simpan level kesulitan yang dipilih
+                selectedDifficulty = this.getAttribute('data-difficulty');
+                console.log('Level kesulitan dipilih:', selectedDifficulty);
+            });
+        });
+        
+        // Set tombol default yang aktif
+        document.querySelector('.player-count-btn[data-count="4"]').classList.add('active', 'bg-blue-500', 'text-white');
+        document.querySelector('.player-count-btn[data-count="4"]').classList.remove('bg-blue-100');
+        
+        document.querySelector('.difficulty-btn[data-difficulty="medium"]').classList.add('active', 'bg-yellow-500', 'text-white');
+        document.querySelector('.difficulty-btn[data-difficulty="medium"]').classList.remove('bg-yellow-100');
+        
+        // Event handler untuk tombol mulai permainan
+        document.getElementById('start-game-button').addEventListener('click', function() {
+            // Sembunyikan menu awal
+            document.getElementById('start-menu').style.display = 'none';
+            
+            // Mulai permainan dengan jumlah pemain dan level kesulitan yang dipilih
+            console.log(`Memulai permainan dengan ${selectedPlayerCount} pemain dan level ${selectedDifficulty}`);
+            initGame(selectedPlayerCount, selectedDifficulty);
+        });
+        
+        // Event handler untuk tombol main lagi setelah game berakhir
+        document.getElementById('new-game-button').addEventListener('click', function() {
+            // Tampilkan menu awal lagi
+            document.getElementById('start-menu').style.display = 'flex';
+            document.getElementById('winner-popup').classList.add('hidden');
         });
     </script>
 </body>

@@ -168,6 +168,9 @@ function initGame(numPlayers = 2, difficulty = 'medium') {
         });
     }
     
+    // Menyesuaikan tampilan dengan jumlah pemain yang dipilih
+    adjustPlayerAreasForPlayerCount(numPlayers);
+    
     // Reset kotak kartu 2 dan riwayat kartu
     const playedTwosArea = document.getElementById('played-twos');
     if (playedTwosArea && playedTwosArea.querySelector('div')) {
@@ -692,19 +695,25 @@ function playAITurn() {
                 gameState.currentPlay = null;
             }
             
-            // Cari kombinasi kartu terbaik untuk dimainkan
-            // Dalam kasus ini, AI lebih baik memainkan kartu tunggal dengan nilai rendah
-            const values = ['3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A', '2'];
-            const sortedCards = [...currentPlayer.hand].sort((a, b) => {
-                return values.indexOf(a.value) - values.indexOf(b.value);
-            });
-            
-            // Pilih kartu terendah untuk dimainkan
-            if (sortedCards.length > 0) {
-                const lowestCard = sortedCards[0];
-                console.log(`AI Pemain ${currentPlayer.index} memainkan kartu terendah:`, lowestCard);
-                playCards(currentPlayer, [lowestCard], CombinationTypes.SINGLE);
+            // Cari kombinasi kartu terbaik untuk dimainkan berdasarkan level kesulitan
+            const combination = findBestCombinationBasedOnDifficulty(currentPlayer);
+            if (combination) {
+                console.log(`AI Pemain ${currentPlayer.index} memainkan kombinasi:`, combination);
+                playCards(currentPlayer, combination.cards, combination.type);
                 return;
+            } else {
+                // Jika tidak ada kombinasi yang ditemukan, pilih kartu terendah
+                const values = ['3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A', '2'];
+                const sortedCards = [...currentPlayer.hand].sort((a, b) => {
+                    return values.indexOf(a.value) - values.indexOf(b.value);
+                });
+                
+                if (sortedCards.length > 0) {
+                    const lowestCard = sortedCards[0];
+                    console.log(`AI Pemain ${currentPlayer.index} memainkan kartu terendah:`, lowestCard);
+                    playCards(currentPlayer, [lowestCard], CombinationTypes.SINGLE);
+                    return;
+                }
             }
         }
         
@@ -730,7 +739,7 @@ function playAITurn() {
         }
         
         // Logika normal AI untuk kasus lainnya
-        // Cari kombinasi kartu yang valid untuk dimainkan
+        // Cari kombinasi kartu yang valid untuk dimainkan berdasarkan level kesulitan
         const validCombination = findValidCombinationForAI(currentPlayer);
         
         // Debug: Tampilkan kombinasi yang ditemukan
@@ -738,6 +747,29 @@ function playAITurn() {
                    validCombination ? `${validCombination.type} dengan ${validCombination.cards.length} kartu` : 'tidak ada');
         
         if (validCombination) {
+            // Jika level hard, cek dulu apakah perlu memainkan kartu 2
+            if (gameState.difficulty === 'hard' && 
+                validCombination.type === CombinationTypes.SINGLE && 
+                validCombination.cards[0].value === '2') {
+                
+                // Di level hard, AI menghindari memainkan kartu 2 jika masih memiliki banyak kartu
+                if (currentPlayer.hand.length > 5) {
+                    console.log(`AI Pemain ${currentPlayer.index} (HARD) menahan kartu 2 karena masih memiliki ${currentPlayer.hand.length} kartu`);
+                    
+                    // Cari kombinasi lain atau kartu tertinggi kecuali 2
+                    const alternativeCombination = findAlternativeCombination(currentPlayer);
+                    if (alternativeCombination) {
+                        console.log(`AI Pemain ${currentPlayer.index} (HARD) memainkan kombinasi alternatif:`, alternativeCombination);
+                        playCards(currentPlayer, alternativeCombination.cards, alternativeCombination.type);
+                    } else {
+                        console.log(`AI Pemain ${currentPlayer.index} (HARD) tidak punya alternatif, terpaksa lewat`);
+                        passTurn();
+                    }
+                    return;
+                }
+            }
+            
+            // Untuk level easy dan medium, atau kasus lain di level hard, mainkan kartu
             console.log(`AI Pemain ${gameState.currentPlayerIndex} membuang kartu:`, validCombination.cards);
             playCards(currentPlayer, validCombination.cards, validCombination.type);
         } else {
@@ -745,6 +777,333 @@ function playAITurn() {
             passTurn(); // Gunakan passTurn untuk AI juga
         }
     }, 1000);
+}
+
+// Fungsi untuk mencari bom (quartet)
+function findBombCards(player) {
+    const valueCounts = {};
+    player.hand.forEach(card => {
+        valueCounts[card.value] = (valueCounts[card.value] || 0) + 1;
+    });
+    
+    for (const [value, count] of Object.entries(valueCounts)) {
+        if (count === 4) {
+            return player.hand.filter(card => card.value === value);
+        }
+    }
+    
+    return null;
+}
+
+// Fungsi untuk mencari kombinasi terbaik berdasarkan level kesulitan
+function findBestCombinationBasedOnDifficulty(player) {
+    const values = ['3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A', '2'];
+    
+    // Level Easy - Pilih kombinasi kartu dengan nilai terendah
+    if (gameState.difficulty === 'easy') {
+        // Cari triplet dengan nilai terendah
+        const valueCounts = {};
+        player.hand.forEach(card => {
+            valueCounts[card.value] = (valueCounts[card.value] || 0) + 1;
+        });
+        
+        let lowestTripletValue = null;
+        for (const [value, count] of Object.entries(valueCounts)) {
+            if (count >= 3 && (lowestTripletValue === null || values.indexOf(value) < values.indexOf(lowestTripletValue))) {
+                lowestTripletValue = value;
+            }
+        }
+        
+        if (lowestTripletValue) {
+            const tripletCards = player.hand.filter(card => card.value === lowestTripletValue).slice(0, 3);
+            return {
+                cards: tripletCards,
+                type: CombinationTypes.TRIPLET
+            };
+        }
+        
+        // Jika tidak ada triplet, pilih kartu tunggal terendah
+        const sortedCards = [...player.hand].sort((a, b) => {
+            return values.indexOf(a.value) - values.indexOf(b.value);
+        });
+        
+        if (sortedCards.length > 0) {
+            return {
+                cards: [sortedCards[0]],
+                type: CombinationTypes.SINGLE
+            };
+        }
+    }
+    
+    // Level Medium - Coba kombinasi yang lebih baik seperti straight atau triplet
+    else if (gameState.difficulty === 'medium') {
+        // Cari straight
+        const sortedHand = [...player.hand].sort((a, b) => {
+            return values.indexOf(a.value) - values.indexOf(b.value);
+        });
+        
+        for (let i = 0; i <= sortedHand.length - 3; i++) {
+            const potentialStraight = [];
+            potentialStraight.push(sortedHand[i]);
+            
+            let lastValueIndex = values.indexOf(sortedHand[i].value);
+            for (let j = i + 1; j < sortedHand.length; j++) {
+                const currentValueIndex = values.indexOf(sortedHand[j].value);
+                if (currentValueIndex === lastValueIndex + 1) {
+                    potentialStraight.push(sortedHand[j]);
+                    lastValueIndex = currentValueIndex;
+                    
+                    if (potentialStraight.length >= 3) {
+                        return {
+                            cards: potentialStraight,
+                            type: CombinationTypes.STRAIGHT
+                        };
+                    }
+                }
+            }
+        }
+        
+        // Cari triplet
+        const valueCounts = {};
+        player.hand.forEach(card => {
+            valueCounts[card.value] = (valueCounts[card.value] || 0) + 1;
+        });
+        
+        for (const [value, count] of Object.entries(valueCounts)) {
+            if (count >= 3) {
+                const tripletCards = player.hand.filter(card => card.value === value).slice(0, 3);
+                return {
+                    cards: tripletCards,
+                    type: CombinationTypes.TRIPLET
+                };
+            }
+        }
+        
+        // Jika tidak ada kombinasi yang lebih baik, pilih kartu tunggal
+        if (player.hand.length > 0) {
+            // Acak sedikit apakah memilih kartu tinggi atau rendah
+            const randomIndex = Math.floor(Math.random() * player.hand.length);
+            return {
+                cards: [player.hand[randomIndex]],
+                type: CombinationTypes.SINGLE
+            };
+        }
+    }
+    
+    // Level Hard - Strategi lebih kompleks, pertimbangkan nilai kartu dan jumlah kartu lawan
+    else if (gameState.difficulty === 'hard') {
+        // Cek jumlah kartu pemain lain
+        const otherPlayers = gameState.players.filter(p => p.index !== player.index);
+        const minCardsOtherPlayer = Math.min(...otherPlayers.map(p => p.hand.length));
+        
+        // Jika ada pemain lain yang kartu sedikit (hampir menang), coba buang kombinasi tinggi
+        if (minCardsOtherPlayer <= 3) {
+            // Coba buang kartu 2 untuk memaksa pemain lain lewat
+            const twoCard = player.hand.find(card => card.value === '2');
+            if (twoCard) {
+                return {
+                    cards: [twoCard],
+                    type: CombinationTypes.SINGLE
+                };
+            }
+            
+            // Coba buang kartu As
+            const aceCard = player.hand.find(card => card.value === 'A');
+            if (aceCard) {
+                return {
+                    cards: [aceCard],
+                    type: CombinationTypes.SINGLE
+                };
+            }
+            
+            // Jika tidak punya kartu 2 atau As, coba triplet nilai tinggi
+            const valueCounts = {};
+            player.hand.forEach(card => {
+                valueCounts[card.value] = (valueCounts[card.value] || 0) + 1;
+            });
+            
+            let highestTripletValue = null;
+            for (const [value, count] of Object.entries(valueCounts)) {
+                if (count >= 3 && (highestTripletValue === null || values.indexOf(value) > values.indexOf(highestTripletValue))) {
+                    highestTripletValue = value;
+                }
+            }
+            
+            if (highestTripletValue) {
+                const tripletCards = player.hand.filter(card => card.value === highestTripletValue).slice(0, 3);
+                return {
+                    cards: tripletCards,
+                    type: CombinationTypes.TRIPLET
+                };
+            }
+        }
+        
+        // Jika kartu pemain lain masih banyak, lebih konservatif
+        else {
+            // Coba kombinasi yang bisa menghabiskan banyak kartu sekaligus
+            
+            // Cek quartet (pegang untuk serangan balik jika ada kartu 2)
+            const quartetValue = checkForQuartet(player);
+            if (quartetValue && player.hand.length > 6) {  // Simpan quartet jika masih banyak kartu
+                console.log('AI level hard menyimpan quartet untuk serangan balik');
+            }
+            else if (quartetValue) {
+                const quartetCards = player.hand.filter(card => card.value === quartetValue);
+                return {
+                    cards: quartetCards,
+                    type: CombinationTypes.QUARTET
+                };
+            }
+            
+            // Cek straight flush
+            // [implementasi kompleks, disederhanakan di sini]
+            
+            // Cek straight
+            const straight = findLongestStraight(player);
+            if (straight && straight.length >= 4) {
+                return {
+                    cards: straight,
+                    type: CombinationTypes.STRAIGHT
+                };
+            }
+            
+            // Cek triplet
+            const valueCounts = {};
+            player.hand.forEach(card => {
+                valueCounts[card.value] = (valueCounts[card.value] || 0) + 1;
+            });
+            
+            let lowestTripletValue = null;
+            for (const [value, count] of Object.entries(valueCounts)) {
+                if (count >= 3 && (lowestTripletValue === null || values.indexOf(value) < values.indexOf(lowestTripletValue))) {
+                    lowestTripletValue = value;
+                }
+            }
+            
+            if (lowestTripletValue) {
+                const tripletCards = player.hand.filter(card => card.value === lowestTripletValue).slice(0, 3);
+                return {
+                    cards: tripletCards,
+                    type: CombinationTypes.TRIPLET
+                };
+            }
+            
+            // Kartu tunggal nilai rendah (simpan kartu 2 dan As)
+            const sortedCards = [...player.hand].sort((a, b) => {
+                return values.indexOf(a.value) - values.indexOf(b.value);
+            });
+            
+            if (sortedCards.length > 0) {
+                // Jangan mainkan kartu 2 dan As jika masih banyak kartu lain
+                const safeCard = sortedCards.find(card => card.value !== '2' && card.value !== 'A');
+                if (safeCard) {
+                    return {
+                        cards: [safeCard],
+                        type: CombinationTypes.SINGLE
+                    };
+                } else {
+                    return {
+                        cards: [sortedCards[0]],
+                        type: CombinationTypes.SINGLE
+                    };
+                }
+            }
+        }
+    }
+    
+    return null;
+}
+
+// Fungsi untuk mencari kombinasi alternatif selain kartu 2
+function findAlternativeCombination(player) {
+    const values = ['3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A', '2'];
+    
+    // Cari kartu tertinggi selain kartu 2
+    const sortedCards = [...player.hand]
+        .filter(card => card.value !== '2')
+        .sort((a, b) => {
+            return values.indexOf(b.value) - values.indexOf(a.value);
+        });
+    
+    // Jika ada kombinasi yang sedang dimainkan, coba cari kartu yang bisa melawannya
+    if (gameState.currentPlay) {
+        if (gameState.currentPlay.type === CombinationTypes.SINGLE) {
+            // Jika lawan mainkan kartu tunggal, cari kartu tunggal yang lebih tinggi
+            const currentCard = gameState.currentPlay.cards[0];
+            const sameSuitCards = sortedCards.filter(card => card.suit === currentCard.suit);
+            
+            for (const card of sameSuitCards) {
+                if (values.indexOf(card.value) > values.indexOf(currentCard.value)) {
+                    return {
+                        cards: [card],
+                        type: CombinationTypes.SINGLE
+                    };
+                }
+            }
+        }
+        // Tambahkan kasus untuk kombinasi lain jika diperlukan
+    }
+    
+    // Jika tidak ada kartu yang dimainkan atau tidak bisa melawan, mainkan kartu tunggal tertinggi
+    if (sortedCards.length > 0) {
+        return {
+            cards: [sortedCards[0]],
+            type: CombinationTypes.SINGLE
+        };
+    }
+    
+    return null;
+}
+
+// Fungsi untuk mengecek apakah pemain memiliki quartet
+function checkForQuartet(player) {
+    const valueCounts = {};
+    player.hand.forEach(card => {
+        valueCounts[card.value] = (valueCounts[card.value] || 0) + 1;
+    });
+    
+    for (const [value, count] of Object.entries(valueCounts)) {
+        if (count === 4) {
+            return value;
+        }
+    }
+    
+    return null;
+}
+
+// Fungsi untuk mencari straight terpanjang
+function findLongestStraight(player) {
+    const values = ['3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A', '2'];
+    const sortedHand = [...player.hand].sort((a, b) => {
+        return values.indexOf(a.value) - values.indexOf(b.value);
+    });
+    
+    let longestStraight = [];
+    
+    for (let i = 0; i < sortedHand.length; i++) {
+        const currentStraight = [sortedHand[i]];
+        let lastValueIndex = values.indexOf(sortedHand[i].value);
+        
+        for (let j = i + 1; j < sortedHand.length; j++) {
+            const currentValueIndex = values.indexOf(sortedHand[j].value);
+            
+            // Skip kartu dengan nilai yang sama
+            if (currentValueIndex === lastValueIndex) continue;
+            
+            if (currentValueIndex === lastValueIndex + 1) {
+                currentStraight.push(sortedHand[j]);
+                lastValueIndex = currentValueIndex;
+            } else {
+                break; // Tidak berurutan lagi
+            }
+        }
+        
+        if (currentStraight.length > longestStraight.length) {
+            longestStraight = currentStraight;
+        }
+    }
+    
+    return longestStraight.length >= 3 ? longestStraight : null;
 }
 
 // Fungsi untuk mencari kombinasi kartu valid untuk AI
@@ -789,10 +1148,11 @@ function findValidCombinationForAI(player) {
     
     // Jika tidak ada kartu yang dimainkan sebelumnya (awal permainan atau setelah semua pemain lewat)
     if (!gameState.currentPlay) {
-        // Jika ini adalah giliran pertama, cari kartu 3 wajik
-        if (gameState.firstTurn) {
+        // Jika harus memainkan kartu 3 wajik di awal permainan
+        if (gameState.mustPlayThreeOfDiamonds) {
             const threeDiamond = player.hand.find(card => card.value === '3' && card.suit === '♦');
             if (threeDiamond) {
+                console.log('AI menemukan kartu 3 wajik dan memainkannya sebagai kartu pertama');
                 return {
                     cards: [threeDiamond],
                     type: CombinationTypes.SINGLE
@@ -1278,18 +1638,18 @@ function findValidCardForAI(player) {
 function findPlayerWithThreeOfDiamonds() {
     for (let i = 0; i < gameState.players.length; i++) {
         const player = gameState.players[i];
-        // Cek kedua format (baru dan lama) untuk mendukung kompatibilitas
-        const hasThreeOfDiamonds = player.hand.some(card => 
-            card.value === '3' && (card.suit === 'wajik' || card.suit === '♦')
-        );
-        
-        if (hasThreeOfDiamonds) {
-            console.log(`Pemain ${i} memiliki kartu 3 wajik`);
-            return i;
+        for (let j = 0; j < player.hand.length; j++) {
+            const card = player.hand[j];
+            if (card.value === '3' && card.suit === '♦') {
+                console.log(`Pemain ${i} memiliki kartu 3 wajik`);
+                // Simpan informasi bahwa game pertama dimulai - pemain harus membuang 3 wajik
+                gameState.mustPlayThreeOfDiamonds = true;
+                return i;
+            }
         }
     }
     
-    // Jika tidak ada yang punya 3 wajik (sangat jarang terjadi), mulai dari pemain 0
+    // Jika tidak ditemukan, kembali ke pemain 0
     console.log('Tidak ada pemain yang memiliki kartu 3 wajik, pemain 0 mulai duluan');
     return 0;
 }
@@ -1476,18 +1836,27 @@ function validateNextPlay(player, cards, combinationType) {
     
     // Jika belum ada kartu yang dimainkan (awal permainan atau setelah reset)
     if (!gameState.currentPlay) {
-        if (gameState.firstTurn) {
-            // Jika ini game pertama, pemain pertama harus memainkan kartu 3 wajik
-            if (gameState.firstGame) {
-                const has3Diamond = cards.some(card => card.value === '3' && card.suit === '♦');
-                if (!has3Diamond) {
-                    console.error('Pada game pertama, kartu pertama harus 3 wajik');
-                    return false;
-                }
-            } else {
-                // Jika ini bukan game pertama (sudah ada pemenang), pemain bebas memainkan kartu apa saja
-                console.log('Permainan dimulai oleh pemenang sebelumnya, bebas membuang kartu apapun');
+        // Validasi kartu 3 wajik untuk permainan pertama
+        if (gameState.mustPlayThreeOfDiamonds) {
+            // Pemain pertama HARUS memainkan kartu 3 wajik sebagai kartu TUNGGAL
+            if (!(combinationType === CombinationTypes.SINGLE && 
+                  cards.length === 1 && 
+                  cards[0].value === '3' && 
+                  cards[0].suit === '♦')) {
+                console.error('Pada game pertama, kartu pertama harus 3 wajik');
+                showErrorMessage('Anda harus memainkan kartu 3 wajik sebagai kartu pertama');
+                return false;
             }
+            
+            // Reset flag agar tidak diminta lagi
+            gameState.mustPlayThreeOfDiamonds = false;
+            console.log('Kartu 3 wajik dimainkan, permainan dimulai!');
+            return true;
+        }
+        
+        if (gameState.firstTurn) {
+            // Jika ini bukan game pertama (sudah ada pemenang), pemain bebas memainkan kartu apa saja
+            console.log('Permainan dimulai oleh pemenang sebelumnya, bebas membuang kartu apapun');
             
             // Set firstTurn menjadi false agar permainan berlanjut dengan normal
             gameState.firstTurn = false;
@@ -1505,6 +1874,12 @@ function validateNextPlay(player, cards, combinationType) {
         
         const currentCard = gameState.currentPlay.cards[0];
         const newCard = cards[0];
+        
+        // ATURAN SPESIAL: Kartu 2 bisa melawan kartu tunggal apapun
+        if (newCard.value === '2') {
+            console.log('Kartu 2 bisa melawan kartu tunggal apapun');
+            return true;
+        }
         
         // Kartu harus sama jenisnya (suit)
         if (currentCard.suit !== newCard.suit) {
@@ -1527,7 +1902,114 @@ function validateNextPlay(player, cards, combinationType) {
         return true;
     }
         
-    // Jika bukan giliran pertama dan bukan kartu tunggal, pemain bebas memainkan kartu apa saja
+    // Validasi untuk kombinasi kartu (bukan kartu tunggal)
+    // Kombinasi harus sejenis dan lebih kuat
+    if (gameState.currentPlay && combinationType !== CombinationTypes.SINGLE) {
+        // Kombinasi harus sama dengan yang dimainkan sebelumnya
+        if (combinationType !== gameState.currentPlay.type) {
+            console.error(`Kombinasi ${combinationType} tidak bisa melawan ${gameState.currentPlay.type}`);
+            showErrorMessage(`Kombinasi ${getCombinationName(combinationType)} tidak bisa melawan ${getCombinationName(gameState.currentPlay.type)}`);
+            return false;
+        }
+        
+        // Validasi berdasarkan jenis kombinasi
+        switch (combinationType) {
+            case CombinationTypes.STRAIGHT:
+                // Straight harus memiliki jumlah kartu yang sama dan nilai tertinggi lebih besar
+                if (cards.length !== gameState.currentPlay.cards.length) {
+                    console.error(`Straight harus memiliki jumlah kartu yang sama: ${gameState.currentPlay.cards.length}`);
+                    showErrorMessage(`Straight harus memiliki jumlah kartu yang sama: ${gameState.currentPlay.cards.length}`);
+                    return false;
+                }
+                
+                // Bandingkan nilai tertinggi
+                const currentStraightMax = Math.max(...gameState.currentPlay.cards.map(c => Card.getNumericValue(c.value)));
+                const newStraightMax = Math.max(...cards.map(c => Card.getNumericValue(c.value)));
+                
+                if (newStraightMax <= currentStraightMax) {
+                    console.error(`Straight harus memiliki nilai tertinggi lebih besar`);
+                    showErrorMessage(`Straight harus memiliki nilai tertinggi lebih besar`);
+                    return false;
+                }
+                break;
+                
+            case CombinationTypes.TRIPLET:
+                // Triplet harus memiliki nilai lebih tinggi
+                const currentTripletValue = Card.getNumericValue(gameState.currentPlay.cards[0].value);
+                const newTripletValue = Card.getNumericValue(cards[0].value);
+                
+                if (newTripletValue <= currentTripletValue) {
+                    console.error(`Triplet harus memiliki nilai lebih tinggi`);
+                    showErrorMessage(`Triplet harus memiliki nilai lebih tinggi`);
+                    return false;
+                }
+                break;
+                
+            case CombinationTypes.STRAIGHT_FLUSH:
+                // Straight Flush harus memiliki jumlah kartu yang sama dan nilai tertinggi lebih besar
+                if (cards.length !== gameState.currentPlay.cards.length) {
+                    console.error(`Straight Flush harus memiliki jumlah kartu yang sama: ${gameState.currentPlay.cards.length}`);
+                    showErrorMessage(`Straight Flush harus memiliki jumlah kartu yang sama: ${gameState.currentPlay.cards.length}`);
+                    return false;
+                }
+                
+                // Bandingkan nilai tertinggi
+                const currentFlushMax = Math.max(...gameState.currentPlay.cards.map(c => Card.getNumericValue(c.value)));
+                const newFlushMax = Math.max(...cards.map(c => Card.getNumericValue(c.value)));
+                
+                if (newFlushMax <= currentFlushMax) {
+                    console.error(`Straight Flush harus memiliki nilai tertinggi lebih besar`);
+                    showErrorMessage(`Straight Flush harus memiliki nilai tertinggi lebih besar`);
+                    return false;
+                }
+                break;
+                
+            case CombinationTypes.FULL_HOUSE:
+                // Full House harus memiliki nilai triplet yang lebih tinggi
+                const getCurrentFullHouseValue = (fullHouseCards) => {
+                    // Dapatkan nilai dari kartu yang muncul 3 kali (triplet dalam full house)
+                    const valueCount = {};
+                    fullHouseCards.forEach(card => {
+                        valueCount[card.value] = (valueCount[card.value] || 0) + 1;
+                    });
+                    
+                    for (const [value, count] of Object.entries(valueCount)) {
+                        if (count === 3) {
+                            return Card.getNumericValue(value);
+                        }
+                    }
+                    
+                    return -1; // Tidak valid
+                };
+                
+                const currentFullHouseValue = getCurrentFullHouseValue(gameState.currentPlay.cards);
+                const newFullHouseValue = getCurrentFullHouseValue(cards);
+                
+                if (newFullHouseValue <= currentFullHouseValue) {
+                    console.error(`Full House harus memiliki nilai triplet lebih tinggi`);
+                    showErrorMessage(`Full House harus memiliki nilai triplet lebih tinggi`);
+                    return false;
+                }
+                break;
+                
+            case CombinationTypes.QUARTET:
+                // Quartet harus memiliki nilai lebih tinggi
+                const currentQuartetValue = Card.getNumericValue(gameState.currentPlay.cards[0].value);
+                const newQuartetValue = Card.getNumericValue(cards[0].value);
+                
+                if (newQuartetValue <= currentQuartetValue) {
+                    console.error(`Quartet harus memiliki nilai lebih tinggi`);
+                    showErrorMessage(`Quartet harus memiliki nilai lebih tinggi`);
+                    return false;
+                }
+                break;
+        }
+        
+        console.log(`Kombinasi ${combinationType} valid`);        
+        return true;
+    }
+    
+    // Kombinasi kartu lain yang tidak divalidasi secara khusus
     return true;
 }
     
@@ -3469,9 +3951,79 @@ function endGame(winner) {
                 // Sembunyikan pop-up
                 winnerPopup.classList.add('hidden');
                 
-                // Mulai permainan baru
-                initGame(gameState.players.length, 'medium');
+                // Mulai permainan baru dengan jumlah pemain yang sama dan level kesulitan yang sama
+                initGame(gameState.players.length, gameState.difficulty);
             });
+        }
+    }
+}
+
+// Fungsi untuk menyesuaikan tampilan area pemain berdasarkan jumlah pemain
+function adjustPlayerAreasForPlayerCount(numPlayers) {
+    // Dapatkan elemen area pemain
+    const player1Area = document.getElementById('player-1-area');
+    const player2Area = document.getElementById('player-2-area');
+    const player3Area = document.getElementById('player-3-area');
+    const playerGrid = document.querySelector('.grid.grid-cols-3');
+    
+    if (numPlayers === 2) {
+        // Hanya pemain utama dan 1 AI - sembunyikan pemain 2 dan 3
+        if (player2Area) player2Area.style.display = 'none';
+        if (player3Area) player3Area.style.display = 'none';
+        // Ubah grid menjadi 1 kolom
+        if (playerGrid) {
+            playerGrid.classList.remove('grid-cols-3');
+            playerGrid.classList.add('grid-cols-1');
+        }
+        // Tampilkan pemain 1 di tengah
+        if (player1Area) {
+            player1Area.style.margin = '0 auto';
+            player1Area.style.width = '100%';
+            player1Area.style.maxWidth = '400px';
+        }
+    } else if (numPlayers === 3) {
+        // Pemain utama dan 2 AI - sembunyikan pemain 3
+        if (player1Area) player1Area.style.display = 'block';
+        if (player2Area) player2Area.style.display = 'block';
+        if (player3Area) player3Area.style.display = 'none';
+        // Ubah grid menjadi 2 kolom
+        if (playerGrid) {
+            playerGrid.classList.remove('grid-cols-3');
+            playerGrid.classList.add('grid-cols-2');
+        }
+    } else {
+        // 4 pemain - tampilkan semua
+        if (player1Area) player1Area.style.display = 'block';
+        if (player2Area) player2Area.style.display = 'block';
+        if (player3Area) player3Area.style.display = 'block';
+        // Kembalikan grid ke 3 kolom
+        if (playerGrid) {
+            playerGrid.classList.remove('grid-cols-1', 'grid-cols-2');
+            playerGrid.classList.add('grid-cols-3');
+        }
+        // Reset margin pemain 1
+        if (player1Area) {
+            player1Area.style.margin = '';
+            player1Area.style.width = '';
+            player1Area.style.maxWidth = '';
+        }
+    }
+    
+    // Perbarui label pemain
+    updatePlayerLabels(numPlayers);
+}
+
+// Fungsi untuk memperbarui label pemain berdasarkan jumlah pemain
+function updatePlayerLabels(numPlayers) {
+    if (numPlayers === 2) {
+        // Hanya 1 lawan, ubah label menjadi 'Lawan'
+        const player1Label = document.getElementById('player-1-turn');
+        if (player1Label) player1Label.textContent = 'Lawan';
+    } else {
+        // Reset label ke default
+        for (let i = 1; i < 4; i++) {
+            const playerLabel = document.getElementById(`player-${i}-turn`);
+            if (playerLabel) playerLabel.textContent = `Pemain ${i}`;
         }
     }
 }
