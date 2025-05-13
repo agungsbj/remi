@@ -11,7 +11,29 @@ class Card {
 
     // Urutan suit (Wajik terendah, Skop tertinggi)
     static getSuitsOrder() {
-        return ['♦', '♣', '♥', '♠'];
+        return ['wajik', 'keriting', 'love', 'skop'];
+    }
+    
+    // Fungsi untuk mendapatkan emoji suit
+    static getSuitEmoji(suit) {
+        switch(suit) {
+            case 'wajik': return '♦️';
+            case 'keriting': return '♣️';
+            case 'love': return '♥️';
+            case 'skop': return '♠️';
+            default: return suit;
+        }
+    }
+    
+    // Fungsi untuk mendapatkan warna suit
+    static getSuitColor(suit) {
+        switch(suit) {
+            case 'wajik': return 'text-red-500';
+            case 'love': return 'text-red-500';
+            case 'keriting': return 'text-black';
+            case 'skop': return 'text-black';
+            default: return 'text-white';
+        }
     }
 
     // Mendapatkan rank kartu untuk perbandingan
@@ -23,7 +45,12 @@ class Card {
     }
 
     toString() {
-        return `${this.value}${this.suit}`;
+        return `${this.value}${Card.getSuitEmoji(this.suit)}`;
+    }
+    
+    // Method untuk menampilkan kartu dalam format pembacaan manusia
+    toReadableString() {
+        return `${this.value} ${this.suit}`;
     }
 
     isHigherThan(otherCard) {

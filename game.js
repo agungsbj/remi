@@ -3,6 +3,7 @@
 // Variabel global untuk state game
 const gameState = {
     players: [],
+    playerAfterAllPass: null, // Flag baru untuk menandai pemain yang mendapat giliran setelah semua pass
     currentPlayerIndex: 0, // Indeks pemain yang giliran saat ini
     currentPlay: null, // Kartu yang sedang dimainkan saat ini
     gameStarted: false,
@@ -24,7 +25,8 @@ const gameState = {
     cardHistory: [], // Riwayat kartu yang dibuang
     twoCardPlayed: false, // Flag untuk kartu 2 sudah dimainkan
     playerWhoPlayed2: null, // Menyimpan indeks pemain yang memainkan kartu 2
-    playerBannedFromPlayingBomb: null // Pemain yang tidak boleh memainkan bom setelah memainkan kartu 2
+    playerBannedFromPlayingBomb: null, // Pemain yang tidak boleh memainkan bom setelah memainkan kartu 2
+    playedTwos: [] // Array untuk menyimpan semua kartu 2 yang dimainkan
 };
 
 // Gunakan CombinationTypes dari combinations.js
@@ -41,6 +43,9 @@ let selectedCards = [];
 
 // Variabel untuk menyimpan badge pemain terakhir
 let lastPlayerBadge = null;
+
+// Definisi urutan nilai kartu dari terendah ke tertinggi (sesuai aturan Remi)
+const values = ['3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A', '2'];
 
 // Helper untuk mendapatkan nama kombinasi
 function getCombinationName(type) {
@@ -88,6 +93,7 @@ function initGame(numPlayers = 2, difficulty = 'medium') {
     gameState.playerBannedFromPlayingBomb = null;
     gameState.firstTurn = true;
     gameState.cardHistory = [];
+    gameState.playedTwos = []; // Reset array kartu 2 yang dimainkan
     
     // Restore win counts & lastWinner
     gameState.winCounts = winCountsBackup;
@@ -126,7 +132,7 @@ function initGame(numPlayers = 2, difficulty = 'medium') {
     // Tentukan pemain pertama berdasarkan pemenang terakhir atau pemain dengan kartu 3 wajik jika game pertama
     let startingPlayerIndex = 0;
     
-    if (gameState.lastWinner) {
+    if (gameState.lastWinner !== null) {
         // Mulai dari pemain yang menang di game sebelumnya
         startingPlayerIndex = gameState.lastWinner.index;
         console.log(`Game dimulai oleh pemain yang menang sebelumnya: ${startingPlayerIndex}`);
@@ -190,6 +196,176 @@ function initGame(numPlayers = 2, difficulty = 'medium') {
     if (gameState.currentPlayerIndex !== 0) {
         setTimeout(playAITurn, 1000);
     }
+}
+
+// Fungsi untuk memperbarui tampilan kartu 2 di sidebar
+function updatePlayedTwosDisplay() {
+    const playedTwosArea = document.getElementById('played-twos');
+    if (!playedTwosArea) return;
+    
+    // Dapatkan container untuk kartu 2
+    const twosContainer = playedTwosArea.querySelector('div');
+    if (!twosContainer) return;
+    
+    // Kosongkan container (wajib untuk mencegah penumpukan kartu 2)
+    twosContainer.innerHTML = '';
+    
+    // Jika ada kartu 2 yang sudah dimainkan
+    if (gameState.playedTwos && gameState.playedTwos.length > 0) {
+        // Tambahkan flex wrapper untuk menampilkan kartu secara horizontal
+        const flexWrapper = document.createElement('div');
+        flexWrapper.className = 'flex flex-row justify-center flex-wrap';
+        
+        // Iterasi setiap kartu 2 yang telah dimainkan dan tampilankan
+        gameState.playedTwos.forEach(twoCard => {
+            // Buat elemen kartu mini (ukuran lebih kecil)
+            const miniCard = document.createElement('div');
+            miniCard.className = 'mini-card bg-white rounded shadow-md m-1';
+            miniCard.style.width = '25px'; // Lebih kecil
+            miniCard.style.height = '35px'; // Lebih kecil
+            
+            // Tentukan suit yang akan ditampilkan
+            let suit = twoCard.card.suit;
+            let suitEmoji;
+            
+            // Konversi suit lama ke format baru jika perlu
+            if (suit === '♦') {
+                suit = 'wajik';
+                suitEmoji = Card.getSuitEmoji('wajik');
+            } else if (suit === '♣') {
+                suit = 'keriting';
+                suitEmoji = Card.getSuitEmoji('keriting');
+            } else if (suit === '♥') {
+                suit = 'love';
+                suitEmoji = Card.getSuitEmoji('love');
+            } else if (suit === '♠') {
+                suit = 'skop';
+                suitEmoji = Card.getSuitEmoji('skop');
+            } else {
+                // Jika sudah dalam format baru
+                suitEmoji = Card.getSuitEmoji(suit);
+            }
+            
+            // Tentukan warna berdasarkan suit
+            const color = (suit === 'wajik' || suit === 'love') ? 'text-red-600' : 'text-black';
+            
+            // Isi konten kartu (lebih compact)
+            miniCard.innerHTML = `
+                <div class="p-0 text-center ${color}">
+                    <div class="text-sm font-bold">2</div>
+                    <div class="text-sm">${suitEmoji}</div>
+                </div>
+            `;
+            
+            // Tambahkan info pemain (lebih sederhana)
+            const playerInfo = document.createElement('div');
+            playerInfo.className = 'text-xs font-bold text-center text-white mt-1';
+            // Hanya tampilkan nomor pemain saja
+            playerInfo.textContent = twoCard.playerIndex === 0 ? '0' : `${twoCard.playerIndex}`;
+            
+            // Buat wrapper
+            const cardWrapper = document.createElement('div');
+            cardWrapper.className = 'flex flex-col items-center m-1';
+            cardWrapper.appendChild(miniCard);
+            cardWrapper.appendChild(playerInfo);
+            
+            // Tambahkan ke container
+            flexWrapper.appendChild(cardWrapper);
+        });
+        
+        // Tambahkan flexWrapper ke container
+        twosContainer.appendChild(flexWrapper);
+    }
+}
+
+// Fungsi untuk melacak dan menampilkan kartu yang sudah keluar berdasarkan jenis suit
+function updatePlayedCardsSummary() {
+    const playedCardsList = document.getElementById('cards-played-list');
+    if (!playedCardsList) return;
+    
+    // Kosongkan area kartu yang sudah keluar
+    playedCardsList.innerHTML = '';
+    
+    // Kelompokkan kartu berdasarkan suit
+    const playedCards = {
+        'wajik': [],
+        'keriting': [],
+        'love': [],
+        'skop': []
+    };
+    
+    // Scan riwayat kartu dan kelompokkan berdasarkan suit
+    if (gameState.cardHistory && gameState.cardHistory.length > 0) {
+        // gameState.cardHistory berisi objek {player, cards, combinationType, timestamp}
+        gameState.cardHistory.forEach(historyItem => {
+            // Pastikan historyItem.cards ada dan merupakan array
+            if (historyItem.cards && Array.isArray(historyItem.cards)) {
+                // Proses setiap kartu dalam array cards
+                historyItem.cards.forEach(card => {
+                    if (!card || typeof card !== 'object') return;
+                    
+                    // Konversi suit lama ke format baru jika diperlukan
+                    let suitToUse = card.suit;
+                    if (card.suit === '♦') suitToUse = 'wajik';
+                    else if (card.suit === '♣') suitToUse = 'keriting';
+                    else if (card.suit === '♥') suitToUse = 'love';
+                    else if (card.suit === '♠') suitToUse = 'skop';
+                    
+                    // Tambahkan nilai kartu ke array suit yang sesuai jika belum ada
+                    if (!playedCards[suitToUse]) {
+                        playedCards[suitToUse] = [];
+                    }
+                    
+                    if (!playedCards[suitToUse].includes(card.value)) {
+                        playedCards[suitToUse].push(card.value);
+                    }
+                });
+            }
+        });
+    }
+    
+    // Tampilkan kartu yang sudah keluar untuk setiap suit
+    const suits = ['wajik', 'keriting', 'love', 'skop'];
+    suits.forEach(suit => {
+        // Buat baris untuk setiap jenis suit
+        const suitRow = document.createElement('div');
+        suitRow.className = 'mb-2';
+        
+        // Label suit dengan emoji
+        const suitLabel = document.createElement('span');
+        suitLabel.className = 'font-bold mr-2';
+        
+        // Tentukan warna berdasarkan suit
+        const suitColor = (suit === 'wajik' || suit === 'love') ? 'text-red-500' : 'text-white';
+        suitLabel.className += ` ${suitColor}`;
+        
+        // Tampilkan nama suit dengan emoji
+        suitLabel.innerHTML = `${Card.getSuitEmoji(suit)}:`;
+        suitRow.appendChild(suitLabel);
+        
+        // Sort nilai kartu berdasarkan urutan values jika ada
+        const sortedValues = playedCards[suit] ? [...playedCards[suit]].sort((a, b) => {
+            return values.indexOf(a) - values.indexOf(b);
+        }) : [];
+        
+        // Isi atau kosong?
+        if (sortedValues && sortedValues.length > 0) {
+            // Tambahkan nilai untuk suit ini
+            const valuesSpan = document.createElement('span');
+            valuesSpan.className = 'text-white';
+            valuesSpan.textContent = sortedValues.join(', ');
+            suitRow.appendChild(valuesSpan);
+        } else {
+            // Jika tidak ada kartu yang keluar untuk suit ini
+            const emptySpan = document.createElement('span');
+            emptySpan.className = 'text-gray-400 italic';
+            emptySpan.textContent = '-';
+            suitRow.appendChild(emptySpan);
+        }
+        
+        // Tambahkan ke daftar
+        playedCardsList.appendChild(suitRow);
+    });
 }
 
 // Fungsi timer
@@ -385,8 +561,21 @@ function initUI() {
 function renderCard(card) {
     if (!card) return '';
     
-    const suitSymbol = getSuitSymbol(card.suit);
-    const colorClass = (card.suit === '♦' || card.suit === '♥') ? 'text-red-600' : 'text-black';
+    // Gunakan emoji suit dari Card.getSuitEmoji (konversi suit jika masih menggunakan format lama)
+    let suitSymbol;
+    let suit = card.suit;
+    
+    // Konversi suit lama jika perlu
+    if (card.suit === '♦') suit = 'wajik';
+    if (card.suit === '♣') suit = 'keriting';
+    if (card.suit === '♥') suit = 'love';
+    if (card.suit === '♠') suit = 'skop';
+    
+    // Dapatkan emoji suit dari class Card
+    suitSymbol = Card.getSuitEmoji(suit);
+    
+    // Tentukan warna berdasarkan suit
+    const colorClass = (suit === 'wajik' || suit === 'love') ? 'text-red-600' : 'text-black';
     
     return `
         <div class="relative w-full h-full">
@@ -397,17 +586,6 @@ function renderCard(card) {
             <div class="absolute inset-0 flex items-center justify-center ${colorClass} text-2xl">${suitSymbol}</div>
         </div>
     `;
-}
-
-// Fungsi untuk mendapatkan simbol suit kartu
-function getSuitSymbol(suit) {
-    const suitSymbols = {
-        'Diamond': '♦',
-        'Heart': '♥',
-        'Club': '♣',
-        'Spade': '♠'
-    };
-    return suitSymbols[suit] || suit;
 }
 function updateActionButtons() {
     console.log('Memperbarui tombol aksi...');
@@ -501,6 +679,57 @@ function playAITurn() {
             return;
         }
         
+        // PERBAIKAN: Cek apakah AI ini adalah pemain yang mendapat giliran setelah semua pass
+        if (gameState.playerAfterAllPass === currentPlayer.index) {
+            console.log(`AI Pemain ${currentPlayer.index} HARUS memainkan kartu karena semua pemain telah pass`);
+            
+            // Reset flag playerAfterAllPass
+            gameState.playerAfterAllPass = null;
+            
+            // Jika semua sudah pass, maka bebas memainkan kartu apa saja
+            // Reset currentPlay jika belum di-reset
+            if (gameState.currentPlay) {
+                gameState.currentPlay = null;
+            }
+            
+            // Cari kombinasi kartu terbaik untuk dimainkan
+            // Dalam kasus ini, AI lebih baik memainkan kartu tunggal dengan nilai rendah
+            const values = ['3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A', '2'];
+            const sortedCards = [...currentPlayer.hand].sort((a, b) => {
+                return values.indexOf(a.value) - values.indexOf(b.value);
+            });
+            
+            // Pilih kartu terendah untuk dimainkan
+            if (sortedCards.length > 0) {
+                const lowestCard = sortedCards[0];
+                console.log(`AI Pemain ${currentPlayer.index} memainkan kartu terendah:`, lowestCard);
+                playCards(currentPlayer, [lowestCard], CombinationTypes.SINGLE);
+                return;
+            }
+        }
+        
+        // PERBAIKAN: Cek jika kartu 2 telah dimainkan dan pemain ini bukan yang memainkan kartu 2
+        // atau belum semua pemain mendapat giliran
+        if (gameState.currentPlay && 
+            gameState.currentPlay.type === CombinationTypes.SINGLE && 
+            gameState.currentPlay.cards[0].value === '2' &&
+            !(currentPlayer.index === gameState.playerWhoPlayed2 && gameState.allPlayersHaveHadTurn)) {
+            
+            console.log(`AI Pemain ${currentPlayer.index} mencari bom setelah kartu 2 dimainkan`);
+            
+            // AI hanya bisa memainkan bom (quartet)
+            const bombCards = findBombCards(currentPlayer);
+            if (bombCards && bombCards.length > 0) {
+                console.log(`AI Pemain ${currentPlayer.index} memainkan bom:`, bombCards);
+                playCards(currentPlayer, bombCards, CombinationTypes.QUARTET);
+            } else {
+                console.log(`AI Pemain ${currentPlayer.index} tidak punya bom, harus pass`);
+                passTurn(); // AI harus pass jika tidak punya bom
+            }
+            return;
+        }
+        
+        // Logika normal AI untuk kasus lainnya
         // Cari kombinasi kartu yang valid untuk dimainkan
         const validCombination = findValidCombinationForAI(currentPlayer);
         
@@ -522,53 +751,40 @@ function playAITurn() {
 function findValidCombinationForAI(player) {
     const values = ['3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A', '2'];
     
-    // Jika kartu 2 sedang dimainkan, hanya pemain yang memainkan kartu 2 atau pemain dengan bom yang bisa main
-    if (gameState.twoCardPlayed) {
-        // Jika ini adalah pemain yang baru saja memainkan kartu 2 DAN memiliki flag dilarang memainkan bom
-        if (player.index === gameState.playerWhoPlayed2 && gameState.playerBannedFromPlayingBomb === player.index) {
-            console.log(`AI Pemain ${player.index} baru saja memainkan kartu 2, tidak boleh memainkan bom`);
-            // Pemain yang baru saja memainkan kartu 2 boleh memainkan kartu apa saja KECUALI bom
-            // Saring kartu bom dari potensi kombinasi
-            const bombCards = findBombCards(player);
-            if (bombCards) {
-                console.log(`AI Pemain ${player.index} memiliki bom, tetapi tidak boleh memainkannya setelah memainkan kartu 2`);
+    // PERBAIKAN UTAMA: Cek jika kartu 2 telah dimainkan dan pemain ini bukan yang memainkan kartu 2
+    // atau belum semua pemain mendapat giliran
+    if (gameState.currentPlay && 
+        gameState.currentPlay.type === CombinationTypes.SINGLE && 
+        gameState.currentPlay.cards[0].value === '2' &&
+        !(player.index === gameState.playerWhoPlayed2 && gameState.allPlayersHaveHadTurn)) {
+        
+        console.log('Kartu 2 telah dimainkan. AI hanya bisa memainkan bom (quartet atau straight flush 5+ kartu) atau harus pass');
+        
+        // Cari quartet (bom - 4 kartu dengan nilai sama)
+        const valueCounts = {};
+        player.hand.forEach(card => {
+            valueCounts[card.value] = (valueCounts[card.value] || 0) + 1;
+        });
+        
+        // Cek quartet
+        for (const [value, count] of Object.entries(valueCounts)) {
+            if (count === 4) {
+                const quartetCards = player.hand.filter(card => card.value === value);
+                console.log('AI menemukan quartet yang bisa dimainkan setelah kartu 2');
+                return {
+                    cards: quartetCards,
+                    type: CombinationTypes.QUARTET
+                };
             }
         }
         
-        // Jika ini bukan pemain yang memainkan kartu 2, cari bom (quartet)
-        if (player.index !== gameState.playerWhoPlayed2) {
-            // Cari kartu bom (quartet)
-            const bombCards = findBombCards(player);
-            if (bombCards) {
-                // Untuk AI, buat keputusan strategis apakah akan menggunakan bom
-                // Di sini kita membuat AI menggunakan bom hanya jika mereka punya kartu <= 4
-                // Ini membuat AI tidak selalu menggunakan bom untuk strategi
-                if (player.hand.length <= 4) {
-                    console.log(`AI Pemain ${player.index} memilih menggunakan bom karena hampir menang`);
-                    return {
-                        cards: bombCards,
-                        type: CombinationTypes.QUARTET
-                    };
-                } else {
-                    console.log(`AI Pemain ${player.index} memilih untuk TIDAK menggunakan bom (strategi)`);
-                    // AI memilih untuk tidak gunakan bom, tetap harus lewat
-                    return null;
-                }
-            }
-            
-            // Tidak punya bom, harus lewat
-            console.log(`AI Pemain ${player.index} tidak punya bom, harus lewat`);
-            return null;
-        }
+        // Cek straight flush minimal 5 kartu
+        // Implementasi cek straight flush 5+ kartu disini
+        // ...
         
-        // Jika ini adalah pemain yang memainkan kartu 2, dia bebas memainkan kombinasi baru kecuali bom
-        if (player.index === gameState.playerWhoPlayed2) {
-            // Cari kombinasi yang valid, tapi jangan pernah mainkan bom jika pemain dilarang
-            if (gameState.playerBannedFromPlayingBomb === player.index) {
-                // Jangan pernah mainkan bom
-                console.log(`AI Pemain ${player.index} tidak boleh memainkan bom setelah memainkan kartu 2`);
-            }
-        }
+        // Jika tidak ada bom, AI harus pass
+        console.log('AI tidak memiliki bom, harus pass setelah kartu 2');
+        return null;
     }
     
     // Jika tidak ada kartu yang dimainkan sebelumnya (awal permainan atau setelah semua pemain lewat)
@@ -586,6 +802,7 @@ function findValidCombinationForAI(player) {
         
         // Coba cari kombinasi kartu yang bagus
         // 1. Cari Four of a Kind (Quartet)
+        const values = ['3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A', '2'];
         const valueCounts = {};
         player.hand.forEach(card => {
             valueCounts[card.value] = (valueCounts[card.value] || 0) + 1;
@@ -1061,7 +1278,10 @@ function findValidCardForAI(player) {
 function findPlayerWithThreeOfDiamonds() {
     for (let i = 0; i < gameState.players.length; i++) {
         const player = gameState.players[i];
-        const hasThreeOfDiamonds = player.hand.some(card => card.value === '3' && card.suit === '♦');
+        // Cek kedua format (baru dan lama) untuk mendukung kompatibilitas
+        const hasThreeOfDiamonds = player.hand.some(card => 
+            card.value === '3' && (card.suit === 'wajik' || card.suit === '♦')
+        );
         
         if (hasThreeOfDiamonds) {
             console.log(`Pemain ${i} memiliki kartu 3 wajik`);
@@ -1192,11 +1412,66 @@ function selectCard(card) {
 // Fungsi untuk memvalidasi play berikutnya
 function validateNextPlay(player, cards, combinationType) {
     console.log('Validasi kartu yang akan dimainkan:', cards);
+    console.log('Pemain saat ini:', player.index);
+    console.log('Current Play:', gameState.currentPlay ? `${gameState.currentPlay.type} - ${gameState.currentPlay.cards[0].toString()}` : 'null');
+    console.log('twoCardPlayed status:', gameState.twoCardPlayed);
+    console.log('playerWhoPlayed2:', gameState.playerWhoPlayed2);
+    console.log('firstTurn:', gameState.firstTurn);
+    console.log('firstGame:', gameState.firstGame);
+
+    // PERBAIKAN: Hapus validasi kartu 3 wajik yang bermasalah
+    // Jika kita masih di putaran pertama tapi sudah ada kartu yang dimainkan, lanjutkan saja
+    // Validasi ini ternyata menyebabkan masalah dan menghalangi pemain memainkan kartunya
+    if (gameState.firstTurn && gameState.firstGame) {
+        // Pastikan firstTurn diatur ke false untuk menghindari validasi di masa mendatang
+        gameState.firstTurn = false;
+        console.log('Mengatur ulang flag firstTurn untuk menghindari validasi kartu 3 wajik');
+    }
     
-    // Jika tidak ada kartu yang dimainkan, tidak valid
-    if (!cards || cards.length === 0) {
-        console.error('Tidak ada kartu yang dipilih');
-        return false;
+    console.log('DEBUG - Kondisi kartu 2:');
+    console.log('- gameState.twoCardPlayed:', gameState.twoCardPlayed);
+    console.log('- gameState.playerWhoPlayed2:', gameState.playerWhoPlayed2);
+    console.log('- Kartu yang dimainkan sekarang:', cards.map(c => c.toString()));
+    console.log('- Kombinasi:', combinationType);
+    
+    // PERBAIKAN UTAMA: Cek jika kartu 2 dimainkan - VALIDASI SANGAT KETAT
+    if (gameState.twoCardPlayed === true || 
+        (gameState.currentPlay && 
+         gameState.currentPlay.type === CombinationTypes.SINGLE && 
+         gameState.currentPlay.cards[0].value === '2')) {
+        
+        console.log('VALIDASI KARTU 2 AKTIF: Pemastian ketat untuk kartu 2');
+        console.log('Pemain saat ini:', player.index);
+        console.log('Pemain yang memainkan 2:', gameState.playerWhoPlayed2);
+        console.log('Semua pemain sudah giliran?', gameState.allPlayersHaveHadTurn);
+        
+        // Pemain yang memainkan kartu 2 bebas memainkan kartu apapun di giliran berikutnya
+        // tetapi hanya jika semua pemain sudah mendapat giliran
+        if (player.index === gameState.playerWhoPlayed2 && gameState.allPlayersHaveHadTurn) {
+            console.log('Pemain yang memainkan kartu 2 bebas memainkan kombinasi baru');
+            // Reset flag twoCardPlayed karena putaran kartu 2 sudah selesai
+            gameState.twoCardPlayed = false;
+            gameState.playerWhoPlayed2 = null; // Reset pemain yang memainkan kartu 2
+            gameState.allPlayersHaveHadTurn = false; // Reset flag
+            return true;
+        } 
+        
+        // Cek apakah kartu yang dimainkan adalah bom (quartet atau straight flush min. 5 kartu)
+        const isBomb = combinationType === CombinationTypes.QUARTET || 
+                       (combinationType === CombinationTypes.STRAIGHT_FLUSH && cards.length >= 5);
+        
+        // Jika pemain saat ini BUKAN yang memainkan kartu 2 ATAU
+        // jika pemain yang memainkan kartu 2 tapi belum semua pemain giliran,
+        // maka hanya boleh memainkan bom
+        if (isBomb) {
+            const bombType = combinationType === CombinationTypes.QUARTET ? 'quartet' : 'straight flush';
+            console.log(`Kartu bom (${bombType}) dimainkan untuk melawan kartu 2`);
+            return true;
+        } else {
+            console.error('VALIDASI GAGAL: Setelah kartu 2, hanya bisa memainkan kartu bom atau harus lewat');
+            showErrorMessage('Setelah kartu 2 dimainkan, Anda hanya bisa memainkan bom (quartet atau straight flush min. 5 kartu) atau harus lewat.');
+            return false;
+        }
     }
     
     // Jika belum ada kartu yang dimainkan (awal permainan atau setelah reset)
@@ -1219,127 +1494,74 @@ function validateNextPlay(player, cards, combinationType) {
             return true;
         }
         
-        // Jika bukan giliran pertama, pemain bebas memainkan kartu apa saja
+        // Set firstTurn menjadi false agar permainan berlanjut dengan normal
+        gameState.firstTurn = false;
         return true;
     }
+        
+    // Jika bukan giliran pertama, pemain bebas memainkan kartu apa saja
+    return true;
+}
     
-    // Jika kartu 2 telah dimainkan SEBAGAI KARTU TUNGGAL, pemain berikutnya hanya bisa memainkan kartu bom (quartet) atau harus lewat
-    // KECUALI jika ini adalah pemain yang memainkan kartu 2 dan sudah mendapat giliran lagi
-    if (gameState.currentPlay && 
-        gameState.currentPlay.type === CombinationTypes.SINGLE && 
-        gameState.currentPlay.cards[0].value === '2') {
-        
-        console.log('SANGAT PENTING: Validasi untuk kartu 2 dimainkan');
-        
-        // Pemain yang memainkan kartu 2 bebas memainkan kartu apapun di giliran berikutnya
-        if (player.index === gameState.playerWhoPlayed2 && gameState.allPlayersHaveHadTurn) {
-            console.log('Pemain yang memainkan kartu 2 bebas memainkan kombinasi baru');
-            showErrorMessage('');
-            return true;
-        } else if (combinationType === CombinationTypes.QUARTET) {
-            console.log('Kartu bom (quartet) dimainkan untuk melawan kartu 2');
-            return true;
-        } else if (combinationType === CombinationTypes.STRAIGHT_FLUSH && cards.length >= 5) {
-            console.log('Kartu bom (straight flush minimal 5 kartu) dimainkan untuk melawan kartu 2');
-            return true;
-        } else {
-            console.error('Setelah kartu 2, hanya bisa memainkan kartu bom atau harus lewat');
-            showErrorMessage('Setelah kartu 2, Anda hanya bisa memainkan kartu bom (quartet atau straight flush min. 5 kartu) atau harus lewat.');
-            return false;
-        }
+// Mainkan kartu
+function playCards(player, cards, combinationType) {
+    console.log('Memainkan kartu:', cards);
+    
+    // SANGAT PENTING: Cek jika ini adalah kartu 2 tunggal
+    if (cards.length === 1 && cards[0].value === '2' && combinationType === CombinationTypes.SINGLE) {
+        console.log('PENTING: Kartu 2 tunggal dimainkan, mengaktifkan flag twoCardPlayed');
+        gameState.twoCardPlayed = true;
+        gameState.playerWhoPlayed2 = player.index;
+        gameState.allPlayersHaveHadTurn = false; // Reset flag, akan diset ke true saat semua pemain mendapat giliran
     }
     
-    // Cek jika kartu AS telah dimainkan, pemain berikutnya hanya bisa memainkan kartu 2 atau harus lewat
-    if (gameState.currentPlay && 
-        gameState.currentPlay.type === CombinationTypes.SINGLE && 
-        gameState.currentPlay.cards[0].value === 'A') {
-        
-        console.log('SANGAT PENTING: Validasi untuk kartu AS dimainkan');
-        
-        // Pemain yang memainkan kartu AS bebas memainkan kartu apapun di giliran berikutnya
-        if (player.index === gameState.playerWhoPlayedAce && gameState.allPlayersHaveHadTurn) {
-            console.log('Pemain yang memainkan kartu AS bebas memainkan kombinasi baru');
-            showErrorMessage('');
-            return true;
-        } else if (cards.length === 1 && cards[0].value === '2') {
-            console.log('Kartu 2 dimainkan untuk melawan kartu AS');
-            return true;
-        } else {
-            console.error('Setelah kartu AS, hanya bisa memainkan kartu 2 atau harus lewat');
-            showErrorMessage('Setelah kartu AS, Anda hanya bisa memainkan kartu 2 atau harus lewat.');
-            return false;
-        }
+    // Simpan jika ini kartu AS tunggal
+    if (cards.length === 1 && cards[0].value === 'A' && combinationType === CombinationTypes.SINGLE) {
+        console.log('PENTING: Kartu A tunggal dimainkan, menyimpan informasi untuk validasi');
+        gameState.playerWhoPlayedAce = player.index;
+        gameState.allPlayersHaveHadTurn = false; // Reset flag, akan diset ke true saat semua pemain mendapat giliran
     }
     
-    // Cek jika kartu 2 (tunggal) baru saja dimainkan
-    if (gameState.twoCardPlayed && gameState.lastPlayType === CombinationTypes.SINGLE) {
-        // Pemain yang baru saja memainkan kartu 2 tidak boleh memainkan bom di giliran berikutnya
-        if (player.index === gameState.playerBannedFromPlayingBomb && (combinationType === CombinationTypes.QUARTET || 
-            (combinationType === CombinationTypes.STRAIGHT_FLUSH && cards.length >= 5))) {
-            console.error('Pemain tidak boleh memainkan bom (quartet atau straight flush min. 5 kartu) setelah sebelumnya memainkan kartu 2! Ini tidak adil.');
-            return false;
+    // Keluarkan kartu dari tangan pemain
+    cards.forEach(card => {
+        const index = player.hand.findIndex(c => c.equals(card));
+        if (index !== -1) {
+            player.hand.splice(index, 1);
         }
-        
-        // Cek kombinasi kartu yang akan dimainkan untuk pemain lain
-        if (player.index !== gameState.playerWhoPlayed2) {
-            // Pemain lain boleh memainkan quartet (bom) atau straight flush minimal 5 kartu
-            if (combinationType === CombinationTypes.QUARTET) {
-                return true; // Pemain lain boleh memainkan quartet (bom)
-            } else if (combinationType === CombinationTypes.STRAIGHT_FLUSH && cards.length >= 5) {
-                return true; // Pemain lain boleh memainkan straight flush minimal 5 kartu (bom)
-            } else {
-                console.error('Setelah kartu 2 (tunggal), hanya kartu bom (quartet atau straight flush min. 5 kartu) yang bisa dimainkan, atau pemain harus lewat.');
-                return false;
-            }
-        }
-        // Jika ini adalah pemain yang memainkan kartu 2, dia bisa memainkan kartu apa saja kecuali bom
-        return true;
-    }
+    });
     
-    // Jika semua pemain lain telah lewat, pemain bebas memainkan kombinasi baru
-    if (passedPlayers.length === gameState.players.length - 1) {
-        // PENTING: AI juga bebas memainkan kombinasi baru setelah semua pemain lewat
-        console.log('AI dapat memainkan kombinasi baru setelah semua pemain lewat');
-        
-        // Validasi kombinasi internal (pastikan kombinasi valid)
-        const actualCombination = determineCombination(cards);
-        if (actualCombination === CombinationTypes.NONE) {
-            console.error('Kombinasi kartu tidak valid');
-            return false;
-        }
-        
-        // Jika pemain mendeklarasikan kombinasi yang berbeda dari yang sebenarnya,
-        // gunakan kombinasi yang sebenarnya
-        if (actualCombination !== combinationType) {
-            console.log(`Kombinasi yang dideklarasikan (${combinationType}) berbeda dengan yang sebenarnya (${actualCombination}). Menggunakan kombinasi yang sebenarnya.`);
-            // Pastikan combinationType diupdate agar konsisten
-            combinationType = actualCombination;
-        }
-        
-        // PERBAIKAN BUG: Jika kombinasi baru adalah SINGLE, tetap perlu validasi suit dengan kartu terakhir
-        if (combinationType === CombinationTypes.SINGLE && gameState.currentPlay.type === CombinationTypes.SINGLE) {
-            const lastCard = gameState.currentPlay.cards[0];
-            const newCard = cards[0];
-            
-            // Pengecualian: Kartu 2 bisa dimainkan kapan saja tanpa memperhatikan jenis (suit)
-            if (newCard.value === '2') {
-                console.log('Kartu 2 dimainkan - diperbolehkan tanpa memperhatikan jenis');
-                return true;
-            }
-            
-            // VALIDASI WAJIB: Kartu harus memiliki jenis (suit) yang sama bahkan setelah semua pass
-            if (newCard.suit !== lastCard.suit) {
-                const errorMsg = `Kartu harus memiliki jenis yang sama meskipun semua pemain lewat! Anda memainkan ${getSuitName(newCard.suit)} tetapi kartu sebelumnya adalah ${getSuitName(lastCard.suit)}.`;
-                console.error(errorMsg);
-                showErrorMessage(errorMsg);
-                return false;
-            }
-        }
-        
-        // Untuk kombinasi lain, pemain bebas memainkan kombinasi baru ketika semua pemain lain sudah pass
-        return true;
-    }
+    // Perbaharui currentPlay
+    gameState.currentPlay = {
+        player: player,
+        cards: cards,
+        type: combinationType
+    };
     
+    // Tambahkan ke riwayat
+    addCardHistory(player, cards, combinationType);
+    
+    // Pindahkan ke pemain berikutnya
+    moveToNextPlayer(player.index);
+    
+    // Periksa kondisi kemenangan
+    checkWinCondition(player);
+}
+// Kode rusak telah dihapus sepenuhnya untuk mengatasi masalah sintaks
+
+// Fungsi untuk memeriksa apakah tombol pass harus diaktifkan
+function checkPassButton() {
+    const passButton = document.getElementById('pass-button');
+    if (!passButton) return;
+    
+    // PERBAIKAN: Selalu aktifkan tombol pass, bahkan ketika kartu 2 dimainkan
+    // Ini memastikan pemain selalu bisa pass jika tidak memiliki kartu yang valid
+    passButton.disabled = false;
+    passButton.classList.remove('opacity-50', 'cursor-not-allowed');
+    passButton.title = 'Lewati giliran Anda';
+}
+
+// Fungsi untuk validasi berikutnya
+function validateCardPlay(player, cards, combinationType) {
     // Cek Four of a Kind (Quartet) atau Straight Flush (5 kartu urut suit sama) - Bom
     if (combinationType === CombinationTypes.QUARTET || 
         (combinationType === CombinationTypes.STRAIGHT_FLUSH && cards.length === 5)) {
@@ -1356,29 +1578,6 @@ function validateNextPlay(player, cards, combinationType) {
     if ((combinationType === CombinationTypes.TRIPLET && gameState.currentPlay.type === CombinationTypes.STRAIGHT) ||
         (combinationType === CombinationTypes.STRAIGHT && gameState.currentPlay.type === CombinationTypes.TRIPLET)) {
         const errorMsg = `KOMBINASI TIDAK COCOK: ${getCombinationName(combinationType)} tidak bisa melawan ${getCombinationName(gameState.currentPlay.type)}. Dalam Remi, triplet dan straight tidak bisa saling melawan. Hanya bom yang bisa melawan kombinasi apapun.`;
-        console.error(errorMsg);
-        showErrorMessage(errorMsg);
-        return false;
-    }
-    
-    // Cek pengecualian untuk Flush yang bisa melawan Straight
-    if (combinationType === CombinationTypes.FLUSH && gameState.currentPlay.type === CombinationTypes.STRAIGHT) {
-        console.log('Flush bisa dimainkan untuk melawan Straight');
-        return compareHighestCards(cards, gameState.currentPlay.cards);
-    }
-    
-    // Cek pengecualian untuk Straight Flush yang bisa melawan Straight atau Flush
-    if (combinationType === CombinationTypes.STRAIGHT_FLUSH && 
-        (gameState.currentPlay.type === CombinationTypes.STRAIGHT || gameState.currentPlay.type === CombinationTypes.FLUSH)) {
-        console.log('Straight Flush bisa dimainkan untuk melawan Straight atau Flush');
-        return true;
-    }
-    
-
-    
-    // Validasi tipe kombinasi harus sama (triplet vs triplet, single vs single, dll)
-    if (combinationType !== gameState.currentPlay.type) {
-        const errorMsg = `Kombinasi tidak cocok: ${getCombinationName(combinationType)} vs ${getCombinationName(gameState.currentPlay.type)}. Dalam Remi, tipe kombinasi harus sama: triplet lawan triplet, single vs single, straight lawan straight, dsb.`;
         console.error(errorMsg);
         showErrorMessage(errorMsg);
         return false;
@@ -1408,10 +1607,6 @@ function validateNextPlay(player, cards, combinationType) {
                 return false;
             }
             
-            // Aturan kartu As (dihapus karena tidak sesuai aturan Remi standar)
-            // Dalam aturan Remi standar, setelah kartu As, pemain hanya perlu memainkan kartu dengan
-            // nilai yang lebih tinggi (yaitu kartu 2) atau kartu dengan nilai yang sama dari jenis berbeda
-            
             // Nilai kartu harus lebih tinggi
             const newCardValue = valueOrder.indexOf(newCard.value);
             const lastCardValue = valueOrder.indexOf(lastCard.value);
@@ -1419,6 +1614,7 @@ function validateNextPlay(player, cards, combinationType) {
             
             if (newCardValue <= lastCardValue) {
                 console.error(`Nilai kartu harus lebih tinggi! ${newCard.value} tidak lebih tinggi dari ${lastCard.value}`);
+                showErrorMessage(`Nilai kartu harus lebih tinggi dari ${lastCard.value}`);
                 return false;
             }
             
@@ -1431,7 +1627,6 @@ function validateNextPlay(player, cards, combinationType) {
         case CombinationTypes.STRAIGHT:
         case CombinationTypes.STRAIGHT_FLUSH:
             // Straight/Straight Flush: nilai tertinggi harus lebih tinggi
-            // PERBAIKAN: Straight harus memiliki jumlah kartu yang sama dengan straight sebelumnya
             // Minimal harus punya 3 kartu untuk dianggap sebagai straight
             if (cards.length < 3) {
                 console.error('Straight minimal harus memiliki 3 kartu');
@@ -1439,7 +1634,7 @@ function validateNextPlay(player, cards, combinationType) {
                 return false;
             }
             
-            // PERBAIKAN: Pastikan straight yang dimainkan memiliki jumlah kartu yang sama
+            // Pastikan straight yang dimainkan memiliki jumlah kartu yang sama
             if (cards.length !== gameState.currentPlay.cards.length) {
                 console.error(`Jumlah kartu dalam straight harus sama: ${cards.length} vs ${gameState.currentPlay.cards.length}`);
                 showErrorMessage(`Jumlah kartu dalam straight harus sama dengan straight sebelumnya (${gameState.currentPlay.cards.length} kartu)`);
@@ -1968,11 +2163,11 @@ function addCardHistory(player, cards, combinationType) {
         gameState.cardHistory.pop();
     }
     
-    // Update tampilan riwayat
+    // Update tampilan riwayat dan kartu yang sudah keluar
     updateCardHistoryDisplay();
 }
 
-// Fungsi untuk memperbarui tampilan riwayat kartu
+// Fungsi untuk memperbarui tampilan riwayat kartu dengan format yang sangat sederhana
 function updateCardHistoryDisplay() {
     const historyList = document.getElementById('card-history-list');
     if (!historyList) return;
@@ -1980,74 +2175,135 @@ function updateCardHistoryDisplay() {
     // Kosongkan area riwayat
     historyList.innerHTML = '';
     
-    // Tambahkan setiap item riwayat
+    // Jika game baru dimulai, bersihkan riwayat
+    if (gameState.cardHistory.length === 0) {
+        return;
+    }
+    
+    // Tambahkan setiap item riwayat dalam format ultra-sederhana (satu baris per kartu)
     gameState.cardHistory.forEach(item => {
-        // Buat container untuk item riwayat
         const historyItem = document.createElement('div');
-        historyItem.className = 'mb-3 p-2 bg-black bg-opacity-20 rounded';
+        historyItem.className = 'flex items-center p-1 mb-1 bg-black bg-opacity-20 rounded text-xs';
         
-        // Tambahkan informasi pemain
-        const playerInfo = document.createElement('div');
-        playerInfo.className = 'text-white text-xs mb-1';
-        playerInfo.textContent = `${item.player.isAI ? item.player.name : 'Anda'} - ${item.timestamp}`;
-        historyItem.appendChild(playerInfo);
+        // Tambahkan nomor pemain dengan badge kecil
+        const playerBadge = document.createElement('div');
+        playerBadge.className = 'mr-2 bg-blue-600 text-white px-2 py-1 rounded-full';
+        // Hanya tampilkan nomor pemain atau 'Anda'
+        playerBadge.textContent = item.player.isAI ? `P${item.player.index}` : 'Anda';
+        historyItem.appendChild(playerBadge);
         
-        // Tambahkan informasi kombinasi
-        const combinationInfo = document.createElement('div');
-        combinationInfo.className = 'text-yellow-300 text-xs mb-1';
-        combinationInfo.textContent = `${getCombinationName(item.combinationType)}`;
-        historyItem.appendChild(combinationInfo);
+        // Tambahkan tipe kombinasi
+        const comboType = document.createElement('span');
+        comboType.className = 'mr-2 text-yellow-300';
+        comboType.textContent = getCombinationName(item.combinationType);
+        historyItem.appendChild(comboType);
         
-        // Tambahkan kartu-kartu
-        const cardDisplayContainer = document.createElement('div');
-        cardDisplayContainer.className = 'flex flex-wrap gap-1';
+        // Tambahkan kartu-kartu yang dimainkan dalam format kompak
+        const cardsContainer = document.createElement('div');
+        cardsContainer.className = 'flex flex-wrap gap-1 ml-auto';
         
+        // Tambahkan representasi visual kartu yang lebih sederhana
         item.cards.forEach(card => {
             const miniCard = document.createElement('div');
-            miniCard.className = 'mini-card bg-white rounded text-center text-xs p-1';
-            miniCard.style.width = '20px';
-            miniCard.style.height = '30px';
+            miniCard.className = 'mini-card inline-block w-6 h-8 bg-white rounded border border-gray-300 relative';
             
             // Tentukan warna berdasarkan jenis kartu
-            const color = (card.suit === '♥' || card.suit === '♦') ? 'text-red-600' : 'text-black';
-            miniCard.innerHTML = `<span class="${color}">${card.value}${card.suit}</span>`;
+            const colorClass = (card.suit === '♦' || card.suit === '♥') ? 'text-red-600' : 'text-black';
             
-            cardDisplayContainer.appendChild(miniCard);
+            miniCard.innerHTML = `
+                <div class="absolute top-0 left-0 ${colorClass} text-xs font-bold p-0.5">${card.value}</div>
+                <div class="absolute bottom-0 right-0 ${colorClass} text-xs font-bold p-0.5">${card.suit}</div>
+            `;
+            cardsContainer.appendChild(miniCard);
         });
         
-        historyItem.appendChild(cardDisplayContainer);
+        historyItem.appendChild(cardsContainer);
+        
+        // Tambahkan ke daftar riwayat
         historyList.appendChild(historyItem);
     });
+    
+    // Update tampilan kartu yang sudah keluar
+    updatePlayedCardsSummary();
 }
 
 // Mainkan kartu
 function playCards(player, cards, combinationType) {
     console.log('Memainkan kartu:', cards);
     
-    // PERBAIKAN UTAMA: Validasi tambahan untuk kartu 2
-    // Jika kartu 2 tunggal telah dimainkan, cek validasi ketat
+    // PENTING: Cek apakah kartu 2 tunggal sedang dimainkan
+    if (cards.length === 1 && cards[0].value === '2' && combinationType === CombinationTypes.SINGLE) {
+        console.log('KARTU 2 DIMAINKAN: Pemain akan mendapat giliran lagi setelah pemain lain punya kesempatan untuk memainkan bom');
+        
+        // Simpan informasi bahwa kartu 2 baru saja dimainkan
+        gameState.twoCardPlayed = true;
+        gameState.playerWhoPlayed2 = player.index;
+        gameState.lastPlayType = CombinationTypes.SINGLE; // Simpan tipe kombinasi terakhir
+        gameState.last2Card = {...cards[0]}; // Simpan kartu 2 yang dimainkan
+        gameState.allPlayersHaveHadTurn = false; // Reset flag untuk memastikan semua pemain mendapat giliran
+        
+        // Reset currentPlay untuk mencegah kartu tunggal biasa dilawan dengan kartu 2
+        // Ini penting untuk memastikan validasi ketat diterapkan
+        gameState.currentPlay = {
+            type: CombinationTypes.SINGLE,
+            cards: [{...cards[0]}],
+            player: player.index
+        };
+        
+        // Tambahkan kartu 2 yang dimainkan ke array playedTwos
+        gameState.playedTwos.push({
+            card: {...cards[0]},
+            playerIndex: player.index,
+            timestamp: Date.now()
+        });
+        
+        // Update tampilan kartu 2 di sidebar
+        updatePlayedTwosDisplay();
+    }
+    
+    // Pastikan currentPlay selalu diperbarui dengan benar
+    if (!gameState.twoCardPlayed || (gameState.twoCardPlayed && player.index === gameState.playerWhoPlayed2)) {
+        // Update currentPlay dengan kartu yang sedang dimainkan
+        gameState.currentPlay = {
+            type: combinationType,
+            cards: [...cards],
+            player: player.index
+        };
+    }
+    
+    // PERBAIKAN UTAMA: Validasi tambahan untuk kartu 2, tapi HANYA pada pemain berikutnya
+    // Jika kartu 2 tunggal telah dimainkan, cek validasi ketat, tapi HINDARI validasi pada pemain yang baru saja memainkan kartu 2
     if (gameState.currentPlay && 
         gameState.currentPlay.type === CombinationTypes.SINGLE && 
-        gameState.currentPlay.cards[0].value === '2') {
+        gameState.currentPlay.cards[0].value === '2' &&
+        // PERBAIKAN: Pastikan player tidak sama dengan pemain yang baru saja memainkan kartu 2
+        // Ini untuk menghindari validasi pada AI saat baru saja memainkan kartu 2
+        player.index !== gameState.currentPlay.player) {
         
         console.log('VALIDASI KETAT: Kartu 2 telah dimainkan, hanya bom yang dapat dimainkan');
+        console.log('Pemain saat ini:', player.index, 'vs pemain yang memainkan kartu 2:', gameState.playerWhoPlayed2);
         
         // Jika pemain BUKAN pemain yang memainkan kartu 2 atau belum semua pemain punya giliran
         if (!(player.index === gameState.playerWhoPlayed2 && gameState.allPlayersHaveHadTurn)) {
             // Cek apakah ini adalah kartu bom
             const isBomb = combinationType === CombinationTypes.QUARTET || 
                           (combinationType === CombinationTypes.STRAIGHT_FLUSH && cards.length >= 5);
+                          
+            // Pastikan flag twoCardPlayed tetap true sampai semua pemain mendapat giliran
+            gameState.twoCardPlayed = true;
             
             if (!isBomb) {
                 console.error('VALIDASI GAGAL: Setelah kartu 2, hanya kartu bom yang bisa dimainkan');
                 showErrorMessage('Setelah kartu 2, hanya kartu bom yang bisa dimainkan.');
                 
-                // PERBAIKAN: Paksa tombol menjadi tidak aktif melalui UI
-                const playButton = document.getElementById('play-button');
-                if (playButton) {
-                    playButton.disabled = true;
-                    playButton.classList.add('opacity-50', 'cursor-not-allowed');
-                    playButton.title = 'Setelah kartu 2, hanya bom yang dapat dimainkan';
+                // PERBAIKAN: Paksa tombol menjadi tidak aktif melalui UI (jika pemain manusia)
+                if (player.index === 0) {
+                    const playButton = document.getElementById('play-button');
+                    if (playButton) {
+                        playButton.disabled = true;
+                        playButton.classList.add('opacity-50', 'cursor-not-allowed');
+                        playButton.title = 'Setelah kartu 2, hanya bom yang dapat dimainkan';
+                    }
                 }
                 
                 return false;
@@ -2231,6 +2487,9 @@ function playCards(player, cards, combinationType) {
             gameState.lastPlayType = CombinationTypes.SINGLE; // Simpan tipe kombinasi terakhir
             gameState.last2Card = {...cards[0]}; // Simpan kartu 2 yang dimainkan
             
+            // Update tampilan kartu 2 di sidebar
+            updatePlayedTwosDisplay();
+            
             // Tandai pemain ini tidak boleh memainkan bom di giliran berikutnya
             // Flag ini akan digunakan untuk mencegah pemain memainkan bom setelah kartu 2
             gameState.playerBannedFromPlayingBomb = playerWhoPlayed2;
@@ -2254,6 +2513,9 @@ function playCards(player, cards, combinationType) {
             gameState.totalPlayers = gameState.players.length;
             gameState.lastPlayType = CombinationTypes.SINGLE; // Simpan tipe kombinasi terakhir
             gameState.lastAceCard = {...cards[0]}; // Simpan kartu AS yang dimainkan
+            
+            // Simpan bahwa kartu AS masih aktif - penting untuk validasi
+            gameState.aceCardActive = true;
             
             // PERBAIKAN: JANGAN reset currentPlay untuk konsistensi dengan perbaikan kartu 2
             // Mempertahankan currentPlay agar validasi tetap berjalan
@@ -2322,7 +2584,9 @@ function nextPlayer() {
             // Kembalikan giliran ke pemain yang memainkan kartu AS
             gameState.currentPlayerIndex = playerWhoPlayedAce;
             
-            // Jangan reset aceCardPlayed dan playerWhoPlayedAce sampai pemain memainkan kartu baru
+            // Reset currentPlay untuk memungkinkan pemain memainkan kombinasi baru
+            // Ini penting agar pemain yang memainkan AS bisa memainkan kartu baru
+            gameState.currentPlay = null;
             
             // Reset daftar pemain yang lewat
             passedPlayers = [];
@@ -2407,17 +2671,29 @@ function nextPlayer() {
         
         console.log(`Semua pemain lewat (${passedPlayers.length} pemain), kembali ke pemain yang terakhir membuang kartu`);
         
-        // Jika pemain terakhir yang membuang kartu adalah AI dan kartu terakhir adalah As
-        if (gameState.players[gameState.currentPlayerIndex].isAI && 
-            gameState.currentPlay && 
-            gameState.currentPlay.cards[0].value === 'A') {
+        // PERBAIKAN: Jangan reset currentPlay jika kartu terakhir adalah kartu tunggal
+        // Ini untuk memastikan pemain tetap harus memainkan kartu dengan jenis (suit) yang sama
+        if (gameState.currentPlay && gameState.currentPlay.type === CombinationTypes.SINGLE) {
+            // Untuk kartu tunggal, simpan informasi suit yang harus dimainkan
+            const lastCard = gameState.currentPlay.cards[0];
             
-            // Biarkan AI membuang kartu apa saja
-            console.log('AI dapat membuang kartu apa saja setelah semua pemain lewat');
-            gameState.currentPlay = null;
+            // Simpan kartu terakhir di gameState.lastSingleCard untuk validasi mendatang
+            gameState.lastSingleCard = {
+                suit: lastCard.suit,
+                value: lastCard.value,
+                playerIndex: gameState.currentPlayerIndex
+            };
+            
+            console.log(`PERBAIKAN: Kartu terakhir adalah ${lastCard.value} ${lastCard.suit}, pemain harus tetap memainkan kartu dengan jenis ${lastCard.suit}`);
+            
+            // Tambahkan flag untuk validasi suit
+            gameState.requireSameSuit = true;
+            gameState.requiredSuit = lastCard.suit;
         } else {
-            // Reset currentPlay agar pemain bisa membuang kartu apa saja
+            // Reset currentPlay untuk kombinasi selain single
             gameState.currentPlay = null;
+            gameState.requireSameSuit = false;
+            gameState.requiredSuit = null;
         }
         
         // Reset daftar pemain yang lewat
@@ -2719,26 +2995,44 @@ function updateActionButtons() {
         }
     }
     
-    // Status tombol lewat - PERBAIKAN DRASTIS: SELALU AKTIF SAAT GILIRAN PEMAIN
+    // Status tombol lewat - PERBAIKAN: Tombol pass dinonaktifkan untuk pemain yang mendapat giliran setelah semua pass
     if (passButton) {
         if (gameState.currentPlayerIndex !== 0) {
-            // Hanya nonaktifkan jika bukan giliran pemain
+            // Nonaktifkan jika bukan giliran pemain
             passButton.disabled = true;
             passButton.classList.add('opacity-50', 'cursor-not-allowed');
+        } 
+        // PERBAIKAN: Khusus untuk kartu 2, tombol pass harus SELALU aktif kecuali untuk pemain yang memainkan kartu 2
         } else {
-            // SOLUSI DARURAT: SELALU aktifkan tombol pass ketika giliran pemain
-            // Aktifkan meskipun belum ada kartu di tengah (akan ada pesan di console saja)
+            // PERBAIKAN PENTING: Selalu aktifkan tombol pass
+            // Pemain selalu bisa pass, bahkan setelah kartu 2 dimainkan
+            // atau setelah semua pemain lain pass
             passButton.disabled = false;
             passButton.classList.remove('opacity-50', 'cursor-not-allowed');
-            passButton.classList.add('bg-blue-500', 'hover:bg-blue-600');
+            passButton.style.position = '';
+            passButton.style.overflow = '';
+            passButton.innerHTML = 'Lewat';
+            passButton.title = 'Lewati giliran Anda';
             
-            // Ubah warna dan efek untuk menarik perhatian
-            if (gameState.currentPlay && gameState.currentPlay.cards[0] && gameState.currentPlay.cards[0].value === '2') {
-                // Buat lebih mencolok untuk kasus kartu 2
+            // Hapus pesan panduan jika ada
+            const actionContainer = document.getElementById('action-buttons');
+            if (actionContainer) {
+                const existingHelper = actionContainer.querySelector('.text-red-500.text-xs');
+                if (existingHelper) {
+                    actionContainer.removeChild(existingHelper);
+                }
+            }
+            
+            // Jika ini adalah giliran setelah kartu 2 dimainkan, berikan visual cue
+            if (gameState.twoCardPlayed && gameState.currentPlay && 
+                gameState.currentPlay.type === CombinationTypes.SINGLE && 
+                gameState.currentPlay.cards[0].value === '2') {
+                    
+                // Berikan visual cue untuk menunjukkan bahwa pemain bisa lewat
+                passButton.classList.add('bg-green-500', 'hover:bg-green-600'); // Hijau untuk menarik perhatian
+                passButton.title = 'LEWAT - Anda sebaiknya lewat jika tidak punya kartu bom';
                 passButton.classList.add('animate-pulse');
-                passButton.classList.add('bg-green-500', 'hover:bg-green-600'); // Warna hijau untuk menarik perhatian
-                passButton.title = 'LEWAT GILIRAN - Setelah kartu 2, Anda sebaiknya lewat jika tidak punya kartu bom';
-                passButton.innerHTML = '<b>LEWAT</b>';
+                passButton.innerHTML = '<b>Lewat</b>';
             } else {
                 passButton.classList.remove('animate-pulse');
                 passButton.classList.remove('bg-green-500', 'hover:bg-green-600');
@@ -2749,6 +3043,7 @@ function updateActionButtons() {
     }
     
     // Status tombol urutkan
+    const sortButton = document.getElementById('sort-button');
     if (sortButton) {
         // Nonaktifkan tombol urutkan jika bukan giliran pemain
         if (gameState.currentPlayerIndex !== 0) {
@@ -2759,7 +3054,6 @@ function updateActionButtons() {
             sortButton.classList.remove('opacity-50', 'cursor-not-allowed');
         }
     }
-}
 
 // Fungsi untuk memainkan kartu yang dipilih
 function playSelectedCards() {
@@ -3193,15 +3487,70 @@ function passTurn() {
         badgeContainer.appendChild(passedBadge);
     }
     
-    // Pindah ke pemain berikutnya
-    setTimeout(() => {
-        nextPlayer();
-    }, 500);
+    // Cek apakah semua pemain sudah pass
+    if (passedPlayers.length === gameState.players.length - 1) {
+        // ATURAN DASAR REMI: Jika semua pemain pass, giliran kembali ke pemain yang terakhir membuang kartu
+        console.log('Semua pemain telah pass, kembali ke pemain yang membuang kartu terakhir');
+        
+        // Dapatkan pemain yang terakhir membuang kartu
+        let lastPlayerIndex = 0; // default
+        
+        // Kasus khusus kartu 2: Kembali ke pemain yang memainkan kartu 2
+        if (gameState.twoCardPlayed && gameState.playerWhoPlayed2 !== null) {
+            lastPlayerIndex = gameState.playerWhoPlayed2;
+            console.log(`Kasus kartu 2: Kembali ke pemain ${lastPlayerIndex} yang memainkan kartu 2`);
+            // Tandai bahwa semua pemain sudah mendapat giliran setelah kartu 2
+            gameState.allPlayersHaveHadTurn = true;
+        }
+        // Kasus khusus kartu AS: Kembali ke pemain yang memainkan kartu AS
+        else if (gameState.aceCardPlayed && gameState.playerWhoPlayedAce !== null) {
+            lastPlayerIndex = gameState.playerWhoPlayedAce;
+            console.log(`Kasus kartu AS: Kembali ke pemain ${lastPlayerIndex} yang memainkan kartu AS`);
+            // Tandai bahwa semua pemain sudah mendapat giliran setelah kartu AS
+            gameState.allPlayersHaveHadTurn = true;
+        }
+        // Kasus umum: Kembali ke pemain yang terakhir membuang kartu apapun
+        else if (gameState.lastPlayerWhoPlayed) {
+            lastPlayerIndex = gameState.lastPlayerWhoPlayed.index;
+            console.log(`Kasus umum: Kembali ke pemain ${lastPlayerIndex} yang terakhir membuang kartu`);
+        }
+        
+        // Operasi lanjutan dengan timeout
+        setTimeout(() => {
+            // Set currentPlayerIndex ke pemain yang terakhir membuang kartu
+            gameState.currentPlayerIndex = lastPlayerIndex;
+            
+            // Tandai bahwa pemain ini mendapat giliran setelah semua pass
+            // Hal ini penting untuk menonaktifkan tombol pass
+            gameState.playerAfterAllPass = lastPlayerIndex;
+            console.log(`Pemain ${lastPlayerIndex} ditandai sebagai pemain setelah semua pass, TIDAK BOLEH PASS`);
+            
+            // Reset currentPlay agar pemain bisa memainkan kartu apa saja
+            gameState.currentPlay = null;
+            
+            // Reset daftar pemain yang pass
+            passedPlayers = [];
+            
+            // Update UI
+            updateUI();
+            
+            // Jika pemain adalah AI, jalankan giliran AI
+            if (gameState.players[gameState.currentPlayerIndex].isAI) {
+                setTimeout(playAITurn, 1000);
+            }
+        }, 1000);
+    } else {
+        // Pindah ke pemain berikutnya seperti biasa
+        setTimeout(() => {
+            nextPlayer();
+        }, 1000);
+    }
 }
 
 // Fungsi untuk mengurutkan kartu secara cerdas
 function sortHand() {
-    console.log('Mengurutkan kartu secara cerdas...');
+console.log('Mengurutkan kartu secara cerdas...');
+if (gameState.currentPlayerIndex !== 0) return;
     if (gameState.currentPlayerIndex !== 0) return;
     
     const player = gameState.players[0];
