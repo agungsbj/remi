@@ -26,7 +26,8 @@ const gameState = {
     twoCardPlayed: false, // Flag untuk kartu 2 sudah dimainkan
     playerWhoPlayed2: null, // Menyimpan indeks pemain yang memainkan kartu 2
     playerBannedFromPlayingBomb: null, // Pemain yang tidak boleh memainkan bom setelah memainkan kartu 2
-    playedTwos: [] // Array untuk menyimpan semua kartu 2 yang dimainkan
+    playedTwos: [], // Array untuk menyimpan semua kartu 2 yang dimainkan
+    mustPlayThreeOfDiamonds: false // Flag untuk memastikan kartu 3 wajik dimainkan di awal permainan
 };
 
 // Gunakan CombinationTypes dari combinations.js
@@ -139,6 +140,7 @@ function initGame(numPlayers = 2, difficulty = 'medium') {
         
         // Set gameState.firstGame = false agar validateNextPlay tidak memeriksa kartu 3 wajik
         gameState.firstGame = false;
+        gameState.mustPlayThreeOfDiamonds = false; // Tidak perlu memainkan 3 wajik
     } else {
         // Jika ini permainan pertama, cari pemain yang memiliki kartu 3 wajik
         startingPlayerIndex = findPlayerWithThreeOfDiamonds();
@@ -146,6 +148,8 @@ function initGame(numPlayers = 2, difficulty = 'medium') {
         
         // Set gameState.firstGame = true agar validateNextPlay memeriksa kartu 3 wajik
         gameState.firstGame = true;
+        gameState.mustPlayThreeOfDiamonds = true; // Pemain pertama harus memainkan 3 wajik
+        console.log('Game pertama: pemain harus memainkan kartu 3 wajik');
     }
     
     gameState.currentPlayerIndex = startingPlayerIndex;
@@ -669,6 +673,18 @@ function playAITurn() {
     if (!currentPlayer.isAI) {
         console.error(`Error: Pemain ${gameState.currentPlayerIndex} bukan AI`);
         return;
+    }
+    
+    // PERBAIKAN: Jika ini giliran pertama dan game pertama, cari kartu 3 wajik
+    if (gameState.mustPlayThreeOfDiamonds) {
+        const threeOfDiamonds = currentPlayer.hand.find(card => card.value === '3' && card.suit === '♦');
+        if (threeOfDiamonds) {
+            console.log(`AI Pemain ${currentPlayer.index} memainkan kartu 3 wajik di giliran pertama`);
+            setTimeout(() => {
+                playCards(currentPlayer, [threeOfDiamonds], CombinationTypes.SINGLE);
+            }, 1000);
+            return;
+        }
     }
     
     // Debug: Tampilkan kartu di tangan AI
@@ -1636,21 +1652,23 @@ function findValidCardForAI(player) {
 
 // Fungsi untuk mencari pemain yang memiliki kartu 3 wajik
 function findPlayerWithThreeOfDiamonds() {
+    // Periksa setiap pemain untuk kartu 3 wajik
     for (let i = 0; i < gameState.players.length; i++) {
         const player = gameState.players[i];
-        for (let j = 0; j < player.hand.length; j++) {
-            const card = player.hand[j];
-            if (card.value === '3' && card.suit === '♦') {
-                console.log(`Pemain ${i} memiliki kartu 3 wajik`);
-                // Simpan informasi bahwa game pertama dimulai - pemain harus membuang 3 wajik
-                gameState.mustPlayThreeOfDiamonds = true;
-                return i;
-            }
+        // Cari kartu 3 wajik di tangan pemain
+        const hasThreeOfDiamonds = player.hand.some(card => card.value === '3' && card.suit === '♦');
+        
+        if (hasThreeOfDiamonds) {
+            console.log(`Pemain ${i} memiliki kartu 3 wajik dan akan memulai permainan`);
+            // Simpan informasi bahwa game pertama dimulai - pemain harus membuang 3 wajik
+            gameState.mustPlayThreeOfDiamonds = true;
+            return i;
         }
     }
     
     // Jika tidak ditemukan, kembali ke pemain 0
     console.log('Tidak ada pemain yang memiliki kartu 3 wajik, pemain 0 mulai duluan');
+    gameState.mustPlayThreeOfDiamonds = false; // Tidak perlu memainkan 3 wajik jika tidak ada yang punya
     return 0;
 }
 
@@ -1848,7 +1866,9 @@ function validateNextPlay(player, cards, combinationType) {
                 return false;
             }
             
+            console.log('Kartu 3 wajik dimainkan sebagai kartu pertama - valid');
             // Reset flag agar tidak diminta lagi
+            gameState.mustPlayThreeOfDiamonds = false;
             gameState.mustPlayThreeOfDiamonds = false;
             console.log('Kartu 3 wajik dimainkan, permainan dimulai!');
             return true;
@@ -2151,7 +2171,24 @@ function validateCardPlay(player, cards, combinationType) {
                 return false;
             }
             
-            // Pastikan kartu tertingginya lebih tinggi
+            // PERBAIKAN: Straight flush selalu mengalahkan straight biasa
+            const isNewStraightFlush = combinationType === CombinationTypes.STRAIGHT_FLUSH;
+            const isOldStraightFlush = gameState.currentPlay.type === CombinationTypes.STRAIGHT_FLUSH;
+            
+            // Jika kartu baru adalah straight flush dan kartu lama bukan, maka kartu baru menang
+            if (isNewStraightFlush && !isOldStraightFlush) {
+                console.log('Straight flush mengalahkan straight biasa');
+                return true;
+            }
+            
+            // Jika kartu lama adalah straight flush dan kartu baru bukan, maka kartu baru kalah
+            if (!isNewStraightFlush && isOldStraightFlush) {
+                console.error('Straight biasa tidak bisa mengalahkan straight flush');
+                showErrorMessage('Straight biasa tidak bisa mengalahkan straight flush');
+                return false;
+            }
+            
+            // Jika keduanya sama-sama straight biasa atau straight flush, bandingkan nilai tertinggi
             return compareHighestCards(cards, gameState.currentPlay.cards);
             
         case CombinationTypes.FLUSH:
@@ -2199,6 +2236,34 @@ function compareHighestCards(newCards, oldCards) {
         return true;
     })();
     
+    // PERBAIKAN: Cek apakah ini straight flush (semua kartu memiliki suit yang sama)
+    const isNewStraightFlush = isStraight && newCards.every(card => card.suit === newCards[0].suit);
+    
+    // Cek apakah kartu lama adalah straight
+    const isOldStraight = oldCards.length >= 3 && (() => {
+        const sortedByValue = [...oldCards].sort((a, b) => straightValueOrder.indexOf(a.value) - straightValueOrder.indexOf(b.value));
+        for (let i = 1; i < sortedByValue.length; i++) {
+            if (straightValueOrder.indexOf(sortedByValue[i].value) !== straightValueOrder.indexOf(sortedByValue[i-1].value) + 1) {
+                return false;
+            }
+        }
+        return true;
+    })();
+    
+    // Cek apakah kartu lama adalah straight flush
+    const isOldStraightFlush = isOldStraight && oldCards.every(card => card.suit === oldCards[0].suit);
+    
+    // PERBAIKAN: Straight flush selalu mengalahkan straight biasa
+    if (isNewStraightFlush && !isOldStraightFlush) {
+        console.log('Straight flush mengalahkan straight biasa');
+        return true;
+    }
+    
+    if (!isNewStraightFlush && isOldStraightFlush) {
+        console.log('Straight biasa tidak bisa mengalahkan straight flush');
+        return false;
+    }
+    
     if (isStraight) {
         // Untuk straight, kartu tertinggi adalah kartu dengan nilai tertinggi dalam urutan
         // Gunakan straightValueOrder di mana As adalah kartu tertinggi dan 2 adalah kartu terendah (jika di awal straight)
@@ -2224,12 +2289,12 @@ function compareHighestCards(newCards, oldCards) {
             return false;
         }
         
-        // Jika nilai kartu tertinggi sama, bandingkan jenis kartu (suit)
-        // PERBAIKAN: Menambahkan log untuk membantu debug
-        const suitOrder = ['♦', '♣', '♥', '♠'];
+        // PERBAIKAN: Jika nilai kartu tertinggi sama, bandingkan jenis kartu (suit)
+        // Straight dengan suit lebih tinggi mengalahkan straight dengan suit lebih rendah
+        const suitOrder = ['♦', '♣', '♥', '♠']; // Urutan dari terendah ke tertinggi
         const newSuitRank = suitOrder.indexOf(newHighestCard.suit);
         const oldSuitRank = suitOrder.indexOf(oldHighestCard.suit);
-        console.log(`Nilai sama, membandingkan suit: ${newHighestCard.suit} (${newSuitRank}) vs ${oldHighestCard.suit} (${oldSuitRank})`);
+        console.log(`Nilai sama, membandingkan suit kartu tertinggi: ${newHighestCard.suit} (${newSuitRank}) vs ${oldHighestCard.suit} (${oldSuitRank})`);
         return newSuitRank > oldSuitRank;
     } else {
         // Untuk kombinasi lain, urutkan kartu berdasarkan nilai
