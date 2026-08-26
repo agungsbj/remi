@@ -151,16 +151,16 @@ body {
 /* ── BOT CARD BACKS ── */
 .bot-cards {
   display: flex;
-  gap: -4px;
+  gap: 0;
 }
 
 .card-back {
-  width: 26px; height: 38px;
+  width: 22px; height: 32px;
   border-radius: 4px;
   background: linear-gradient(135deg, #1a3a6e 0%, #0d1f45 100%);
   border: 1px solid rgba(255,255,255,0.2);
   box-shadow: 1px 1px 3px rgba(0,0,0,0.4);
-  margin-right: -14px;
+  margin-right: -10px;
   position: relative;
   flex-shrink: 0;
 }
@@ -177,9 +177,9 @@ body {
   gap: 0;
 }
 .pzone-left .card-back, .pzone-right .card-back {
-  width: 38px; height: 26px;
+  width: 32px; height: 22px;
   margin-right: 0;
-  margin-bottom: -12px;
+  margin-bottom: -8px;
 }
 
 /* ── CENTER TABLE AREA ── */
@@ -342,22 +342,19 @@ body {
 
 #handCardsWrap {
   display: flex;
-  flex-wrap: nowrap;
-  gap: 3px;
-  overflow-x: auto;
-  padding: 8px 4px 2px;
-  max-width: 100%;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 8px 8px 2px;
+  width: 100%;
+  align-items: flex-start;
   justify-content: center;
-  min-height: 84px;
+  min-height: 134px;
+  max-height: 140px;
+  overflow: hidden;
 }
 
-#handCardsWrap::-webkit-scrollbar { display: none; }
-
 #handCardsWrap .card {
-  width: 42px; height: 60px;
+  width: 44px; height: 62px;
   cursor: grab;
   transition: transform 0.15s, box-shadow 0.15s;
   flex-shrink: 0;
@@ -464,7 +461,7 @@ body {
   font-size: 0.6rem;
   padding: 4px 10px;
   cursor: pointer;
-  z-index: 20;
+  z-index: 500;
   font-family: 'DM Sans', sans-serif;
   transition: all 0.15s;
 }
@@ -475,13 +472,13 @@ body {
   top: 40px; right: 12px;
   width: 230px;
   max-height: 320px;
-  background: rgba(8,16,10,0.92);
-  border: 1px solid rgba(201,168,76,0.2);
+  background: rgba(8,16,10,0.96);
+  border: 1px solid rgba(201,168,76,0.3);
   border-radius: 10px;
   overflow: hidden;
   display: none;
   flex-direction: column;
-  z-index: 100;
+  z-index: 500;
   backdrop-filter: blur(10px);
 }
 #logPanel.open { display: flex; }
@@ -762,15 +759,139 @@ body {
 .table-rem-anim { animation: remShake 0.5s ease; }
 .table-bomb-anim { animation: bombFlash 0.8s ease; }
 .np-win-anim { animation: nameplateWin 0.5s ease 3; }
+
+/* ── DIFFICULTY SCREEN ── */
+#diffOverlay {
+  position: absolute; inset: 0;
+  background: radial-gradient(ellipse at center, #1a4a2e 0%, #0e1f15 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  z-index: 400;
+  border-radius: 16px;
+}
+#diffOverlay.hidden { display: none; }
+
+#diffTitle {
+  font-family: 'Playfair Display', serif;
+  color: var(--gold);
+  font-size: 2rem;
+  text-align: center;
+  text-shadow: 0 0 40px rgba(201,168,76,0.4);
+  letter-spacing: 2px;
+}
+#diffSubtitle {
+  font-size: 0.78rem;
+  color: rgba(255,255,255,0.4);
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  margin-top: -12px;
+}
+
+.diff-cards-deco {
+  display: flex; gap: 6px; margin-bottom: 4px;
+}
+.diff-card-deco {
+  width: 36px; height: 52px;
+  background: var(--card-bg);
+  border-radius: 5px;
+  border: 1px solid var(--card-border);
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  font-weight: 700; font-family: 'Playfair Display', serif;
+  box-shadow: 2px 4px 12px rgba(0,0,0,0.5);
+}
+.diff-card-deco.red { color: var(--red); }
+
+.diff-options {
+  display: flex; gap: 12px; flex-wrap: wrap; justify-content: center;
+}
+
+.diff-btn {
+  width: 160px;
+  padding: 16px 12px;
+  border-radius: 12px;
+  border: 2px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.05);
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  font-family: 'DM Sans', sans-serif;
+}
+.diff-btn:hover {
+  transform: translateY(-4px);
+  border-color: var(--gold);
+  background: rgba(201,168,76,0.1);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+}
+
+.diff-icon { font-size: 2rem; }
+.diff-name {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+.diff-desc {
+  font-size: 0.62rem;
+  color: rgba(255,255,255,0.45);
+  text-align: center;
+  line-height: 1.5;
+}
+.diff-stars { font-size: 0.75rem; letter-spacing: 2px; }
+
+.diff-btn.easy:hover  { border-color: #2ecc71; background: rgba(46,204,113,0.1); }
+.diff-btn.medium:hover { border-color: #f39c12; background: rgba(243,156,18,0.1); }
+.diff-btn.hard:hover  { border-color: #e74c3c; background: rgba(231,76,60,0.1); }
+
+.diff-easy   { color: #2ecc71; }
+.diff-medium { color: #f39c12; }
+.diff-hard   { color: #e74c3c; }
 </style>
 </head>
 <body>
 
 <div id="gameTable">
-  <div id="gameTitle">♠ REMI ♥</div>
+  <!-- DIFFICULTY SCREEN -->
+  <div id="diffOverlay">
+    <div class="diff-cards-deco">
+      <div class="diff-card-deco red"><div>A</div><div>♥</div></div>
+      <div class="diff-card-deco"><div>K</div><div>♠</div></div>
+      <div class="diff-card-deco red"><div>3</div><div>♦</div></div>
+      <div class="diff-card-deco"><div>2</div><div>♣</div></div>
+    </div>
+    <div id="diffTitle">♠ REMI ♥</div>
+    <div id="diffSubtitle">Pilih Tingkat Kesulitan</div>
+
+    <div class="diff-options">
+      <button class="diff-btn easy" onclick="startGame('easy')">
+        <div class="diff-icon">🟢</div>
+        <div class="diff-name diff-easy">Easy</div>
+        <div class="diff-stars">⭐☆☆</div>
+        <div class="diff-desc">AI main random,<br>cocok untuk belajar</div>
+      </button>
+      <button class="diff-btn medium" onclick="startGame('medium')">
+        <div class="diff-icon">🟡</div>
+        <div class="diff-name diff-medium">Medium</div>
+        <div class="diff-stars">⭐⭐☆</div>
+        <div class="diff-desc">AI mulai strategis,<br>baca situasi lawan</div>
+      </button>
+      <button class="diff-btn hard" onclick="startGame('hard')">
+        <div class="diff-icon">🔴</div>
+        <div class="diff-name diff-hard">Hard</div>
+        <div class="diff-stars">⭐⭐⭐</div>
+        <div class="diff-desc">AI agresif & cerdas,<br>susah dikalahkan</div>
+      </button>
+    </div>
+  </div>
+
+  <div id="gameTitle">♠ REMI ♥ <span id="diffLabel" style="font-size:0.5rem;opacity:0.5;letter-spacing:2px"></span></div>
 
   <!-- NEW GAME BTN -->
-  <button class="btn btn-new" id="btnNewGame" onclick="newGame()">🔄 Baru</button>
+  <button class="btn btn-new" id="btnNewGame" onclick="showDiffScreen()">🔄 Baru</button>
   <button class="btn btn-new" id="btnRules" onclick="toggleRules()">📖 Aturan</button>
 
 
@@ -983,7 +1104,10 @@ body {
   <div id="gameOverlay">
     <h2>GAME SELESAI</h2>
     <div class="result-list" id="resultList"></div>
-    <button class="btn-newgame" onclick="newGame()">Main Lagi</button>
+    <div style="display:flex;gap:10px;margin-top:4px">
+      <button class="btn-newgame" onclick="showDiffScreen()">Main Lagi</button>
+      <button class="btn-newgame" onclick="toggleLog()" style="background:rgba(255,255,255,0.12);color:#fff;border:1px solid rgba(255,255,255,0.2)">📋 Lihat Log</button>
+    </div>
   </div>
 
   <!-- TOAST -->
@@ -1236,6 +1360,11 @@ function humanPlay() {
 
   if (G.mode==='single'){
     if (cards.length!==1){ toast('Mode single — pilih 1 kartu!','err'); return; }
+    // Kartu 2 di single = REM otomatis
+    if(cards[0].r==='2'){
+      if(G.usedRem[0]){ toast('Kamu sudah pernah REM!','err'); return; }
+      doRem(0,cards[0]); return;
+    }
     if (!canBeat(cards,G.tableCards,'single')){ toast('Harus suit sama & lebih besar!','err'); return; }
     playCards(0,cards); return;
   }
@@ -1294,7 +1423,8 @@ function humanSkipBomb() {
   for (const pid of remaining){
     if (G.usedRem[pid]||G.skippedBomb[pid]) continue;
     const bomb=findBomb(G.hands[pid]);
-    if (bomb&&Math.random()>0.3){ setTimeout(()=>doBomb(pid,bomb),600); anyBombed=true; break; }
+    const bThresh1=DIFFICULTY==='hard'?0.1:DIFFICULTY==='medium'?0.35:0.6;
+    if(bomb&&Math.random()>bThresh1){ setTimeout(()=>doBomb(pid,bomb),600); anyBombed=true; break; }
     else { G.skippedBomb[pid]=true; log('info',`ℹ️ ${PLAYER_NAMES[pid]} skip BOM.`); }
   }
   if (!anyBombed) winRound(G.remPlayer);
@@ -1377,7 +1507,8 @@ function checkBombWindow(remPid){
     if (pid===0) break; // stop, human's turn next
     if (G.usedRem[pid]||G.skippedBomb[pid]) continue;
     const bomb=findBomb(G.hands[pid]);
-    if (bomb&&Math.random()>0.3){
+    const bThresh2=DIFFICULTY==='hard'?0.1:DIFFICULTY==='medium'?0.35:0.6;
+    if(bomb&&Math.random()>bThresh2){
       // AI bombs — delay slightly so log is visible
       setTimeout(()=>doBomb(pid,bomb),600);
       return; // done, no bomb window for human
@@ -1401,7 +1532,8 @@ function checkBombWindow(remPid){
     if (pid===0) continue;
     if (G.usedRem[pid]||G.skippedBomb[pid]) continue;
     const bomb=findBomb(G.hands[pid]);
-    if (bomb&&Math.random()>0.3){
+    const bThresh3=DIFFICULTY==='hard'?0.1:DIFFICULTY==='medium'?0.35:0.6;
+    if(bomb&&Math.random()>bThresh3){
       setTimeout(()=>doBomb(pid,bomb),600);
       anyBombed=true;
       break;
@@ -1448,6 +1580,7 @@ function findBomb(hand){
 }
 
 function winRound(pid){
+  if(G.isGameOver) return;
   log('win',`🏆 ${PLAYER_NAMES[pid]} menang ronde!`);
   playSound('win'); vibrate([20,10,20]);
   animateWinNameplate(pid);
@@ -1461,6 +1594,7 @@ function winRound(pid){
 }
 
 function nextTurn(fromPid){
+  if(G.isGameOver) return;
   const next=getNextActive(fromPid);
   if (next===-1){ endGame(); return; }
   G.turn=next; renderAll(); updateHint();
@@ -1468,6 +1602,7 @@ function nextTurn(fromPid){
 }
 
 function nextActivePlayer(pid){
+  if(G.isGameOver) return;
   const next=getNextActive(pid);
   if (next===-1){ endGame(); return; }
   G.turn=next; renderAll(); updateHint();
@@ -1493,10 +1628,12 @@ function endGame(){
   // Sort: paling banyak kartu = ranking paling akhir
   // Tiebreaker: kartu tertinggi lebih besar = ranking lebih buruk
   remaining.sort((a,b)=>{
-    const lenDiff=G.hands[b].length-G.hands[a].length;
+    // Sedikit kartu = peringkat lebih baik (ascending)
+    const lenDiff=G.hands[a].length-G.hands[b].length;
     if(lenDiff!==0) return lenDiff;
+    // Tiebreaker: kartu tertinggi lebih kecil = lebih baik (ascending)
     const maxVal=hand=>hand.length?Math.max(...hand.map(x=>cardVal(x))):0;
-    return maxVal(G.hands[b])-maxVal(G.hands[a]);
+    return maxVal(G.hands[a])-maxVal(G.hands[b]);
   });
   for(const p of remaining) G.finished.push(p);
   G.isGameOver=true;
@@ -1526,34 +1663,198 @@ function endGame(){
 // AI LOGIC
 // ═══════════════════════════════════════════════════════
 function runAI(){
+  if(G.isGameOver) return;
   const pid=G.turn;
-  if (pid===0||G.finished.includes(pid)) return;
+  if(pid===0||G.finished.includes(pid)) return;
   const hand=G.hands[pid];
-  if (!hand.length){ nextTurn(pid); return; }
-  if (G.firstPlay){ const sc=hand.find(c=>c.r==='3'&&c.s==='♦'); playCards(pid,[sc||hand[0]]); return; }
-  if (G.mode==='free'){ aiFreePlay(pid); return; }
-  if (G.mode==='single'){ aiSingleTurn(pid); return; }
-  if (G.mode==='combo'){ aiComboTurn(pid); return; }
+  if(!hand.length){ nextTurn(pid); return; }
+  if(G.firstPlay){ const sc=hand.find(c=>c.r==='3'&&c.s==='♦'); playCards(pid,[sc||hand[0]]); return; }
+  if(DIFFICULTY==='easy'){
+    if(G.mode==='free') aiEasyFree(pid);
+    else if(G.mode==='single') aiEasySingle(pid);
+    else aiEasyCombo(pid);
+  } else if(DIFFICULTY==='medium'){
+    if(G.mode==='free') aiMediumFree(pid);
+    else if(G.mode==='single') aiMediumSingle(pid);
+    else aiMediumCombo(pid);
+  } else {
+    if(G.mode==='free') aiHardFree(pid);
+    else if(G.mode==='single') aiHardSingle(pid);
+    else aiHardCombo(pid);
+  }
 }
 
-function aiFreePlay(pid){ playCards(pid,[G.hands[pid][0]]); }
+// ═══════════════════════════════════════════════════════
+// DIFFICULTY
+// ═══════════════════════════════════════════════════════
+let DIFFICULTY = 'easy'; // 'easy' | 'medium' | 'hard'
 
-function aiSingleTurn(pid){
+function showDiffScreen(){
+  document.getElementById('gameOverlay').classList.remove('show');
+  document.getElementById('diffOverlay').classList.remove('hidden');
+}
+
+function startGame(diff){
+  DIFFICULTY = diff;
+  document.getElementById('diffOverlay').classList.add('hidden');
+  const labels={'easy':'🟢 EASY','medium':'🟡 MEDIUM','hard':'🔴 HARD'};
+  const el=document.getElementById('diffLabel');
+  if(el) el.textContent='· '+labels[diff];
+  newGame();
+}
+
+// ─── EASY AI ─── (original, random)
+function aiEasyFree(pid){ playCards(pid,[G.hands[pid][0]]); }
+
+function aiEasySingle(pid){
   const hand=G.hands[pid], table=G.tableCards[0];
   const twos=hand.filter(c=>c.r==='2');
-  if (twos.length&&!G.usedRem[pid]&&Math.random()>0.75){ doRem(pid,twos[0]); return; }
-  const cands=hand.filter(c=>c.s===table.s&&cardVal(c)>cardVal(table));
-  if (!cands.length){ doPass(pid); return; }
+  // Kartu 2 di mode single WAJIB REM — tidak bisa dibuang biasa
+  if(twos.length&&!G.usedRem[pid]&&Math.random()>0.75){ doRem(pid,twos[0]); return; }
+  // Filter kartu 2 dari kandidat (kartu 2 tidak bisa main biasa di single)
+  const cands=hand.filter(c=>c.r!=='2'&&c.s===table.s&&cardVal(c)>cardVal(table));
+  if(!cands.length){ doPass(pid); return; }
   playCards(pid,[cands[0]]);
 }
 
-function aiComboTurn(pid){
+function aiEasyCombo(pid){
   const tc=detectCombo(G.tableCards), hand=G.hands[pid];
-  const combos=findAllCombos(hand,tc.type,G.tableCards.length);
-  const beatable=combos.filter(c=>canBeat(c,G.tableCards,tc.type));
-  if (!beatable.length){ doPass(pid); return; }
+  const beatable=findAllCombos(hand,tc.type,G.tableCards.length).filter(x=>canBeat(x,G.tableCards,tc.type));
+  if(!beatable.length){ doPass(pid); return; }
   playCards(pid,beatable[0]);
 }
+
+// ─── MEDIUM AI ─── (situational, mulai strategis)
+function aiMediumFree(pid){
+  const hand=G.hands[pid];
+  // Hitung kartu lawan
+  const minOpponent=Math.min(...[0,1,2,3].filter(p=>p!==pid&&!G.finished.includes(p)).map(p=>G.hands[p].length));
+  // Kalau lawan tinggal sedikit — main kombinasi besar
+  if(minOpponent<=4){
+    const tris=findBestCombo(hand,'tris');
+    if(tris){ playCards(pid,tris); return; }
+  }
+  // Coba buang kombinasi dulu untuk efisiensi
+  const straight=findBestCombo(hand,'straight');
+  if(straight && Math.random()>0.5){ playCards(pid,straight); return; }
+  // Default: main kartu terkecil
+  playCards(pid,[hand[0]]);
+}
+
+function aiMediumSingle(pid){
+  const hand=G.hands[pid], table=G.tableCards[0];
+  const minOpponent=Math.min(...[0,1,2,3].filter(p=>p!==pid&&!G.finished.includes(p)).map(p=>G.hands[p].length));
+  const twos=hand.filter(c=>c.r==='2');
+  const shouldRem = twos.length && !G.usedRem[pid] && (minOpponent<=3 || hand.length<=4) && Math.random()>0.4;
+  if(shouldRem){ doRem(pid,twos[0]); return; }
+  // Filter kartu 2 — tidak bisa main biasa di single
+  const cands=hand.filter(c=>c.r!=='2'&&c.s===table.s&&cardVal(c)>cardVal(table));
+  if(!cands.length){ doPass(pid); return; }
+  if(cands.length>1 && cardVal(cands[cands.length-1])>cardVal({r:'K',s:'♠'}) && Math.random()>0.6){
+    playCards(pid,[cands[0]]); return;
+  }
+  playCards(pid,[cands[0]]);
+}
+
+function aiMediumCombo(pid){
+  const tc=detectCombo(G.tableCards), hand=G.hands[pid];
+  const beatable=findAllCombos(hand,tc.type,G.tableCards.length).filter(x=>canBeat(x,G.tableCards,tc.type));
+  if(!beatable.length){ doPass(pid); return; }
+  // Main yang terkecil yang bisa ngalahin
+  playCards(pid,beatable[0]);
+}
+
+// ─── HARD AI ─── (agresif, baca semua situasi)
+function aiHardFree(pid){
+  const hand=G.hands[pid];
+  const opponents=[0,1,2,3].filter(p=>p!==pid&&!G.finished.includes(p));
+  const minOpp=Math.min(...opponents.map(p=>G.hands[p].length));
+  const myLen=hand.length;
+
+  // Kalau ada lawan mau habis — main kartu tertinggi dulu supaya susah dibalas
+  if(minOpp<=3){
+    // Cari kombinasi terbesar untuk pressure
+    const fh=findBestCombo(hand,'fullhouse');
+    if(fh){ playCards(pid,fh); return; }
+    const sf=findBestCombo(hand,'straightflush');
+    if(sf){ playCards(pid,sf); return; }
+    const tris=findBestCombo(hand,'tris');
+    if(tris){ playCards(pid,tris); return; }
+  }
+
+  // Prioritas: buang kombinasi dulu (efisiensi kartu)
+  if(myLen>6){
+    const straight=findBestCombo(hand,'straight');
+    if(straight && Math.random()>0.3){ playCards(pid,straight); return; }
+    const tris=findBestCombo(hand,'tris');
+    if(tris && Math.random()>0.4){ playCards(pid,tris); return; }
+  }
+
+  // Default: main kartu terkecil yang bukan 2
+  const nonTwo=hand.filter(c=>c.r!=='2');
+  playCards(pid,[nonTwo.length?nonTwo[0]:hand[0]]);
+}
+
+function aiHardSingle(pid){
+  const hand=G.hands[pid], table=G.tableCards[0];
+  const opponents=[0,1,2,3].filter(p=>p!==pid&&!G.finished.includes(p));
+  const minOpp=Math.min(...opponents.map(p=>G.hands[p].length));
+  const twos=hand.filter(c=>c.r==='2');
+
+  // REM: kalau lawan hampir menang, atau kita mau habis tapi masih ada yang bisa ngalahin
+  const remUrgent = minOpp<=2 || (hand.length<=3 && twos.length);
+  if(twos.length && !G.usedRem[pid] && (remUrgent || (minOpp<=4 && Math.random()>0.55))){
+    // Pakai 2 tertinggi
+    const bestTwo=twos.reduce((a,b)=>cardVal(a)>cardVal(b)?a:b);
+    doRem(pid,bestTwo); return;
+  }
+
+  // Filter kartu 2 — tidak bisa main biasa di single
+  const cands=hand.filter(c=>c.r!=='2'&&c.s===table.s&&cardVal(c)>cardVal(table));
+  if(!cands.length){ doPass(pid); return; }
+
+  // Kalau lawan mau habis — counter dengan kartu terkuat
+  if(minOpp<=3){
+    playCards(pid,[cands[cands.length-1]]); return;
+  }
+
+  // Simpan kartu A dan K kalau banyak pilihan
+  const notBig=cands.filter(c=>c.r!=='A'&&c.r!=='K');
+  if(notBig.length && hand.length>5){ playCards(pid,[notBig[0]]); return; }
+  playCards(pid,[cands[0]]);
+}
+
+function aiHardCombo(pid){
+  const tc=detectCombo(G.tableCards), hand=G.hands[pid];
+  const opponents=[0,1,2,3].filter(p=>p!==pid&&!G.finished.includes(p));
+  const minOpp=Math.min(...opponents.map(p=>G.hands[p].length));
+  const beatable=findAllCombos(hand,tc.type,G.tableCards.length).filter(x=>canBeat(x,G.tableCards,tc.type));
+  if(!beatable.length){ doPass(pid); return; }
+
+  // Kalau lawan mau habis — pakai terkuat
+  if(minOpp<=3){
+    playCards(pid,beatable[beatable.length-1]); return;
+  }
+  // Pakai terkecil yang cukup
+  playCards(pid,beatable[0]);
+}
+
+// ─── HELPER: find best combo of type in hand ───
+function findBestCombo(hand, type){
+  const lens = type==='tris'?[3]:type==='fullhouse'?[5]:type==='straight'||type==='straightflush'?[3,4,5]:[];
+  let best=null;
+  for(const len of lens){
+    const found=findAllCombos(hand,type,len);
+    if(found.length){
+      // pick the one with lowest max card value (save big cards)
+      found.sort((a,b)=>Math.max(...a.map(cardVal))-Math.max(...b.map(cardVal)));
+      if(!best) best=found[0];
+    }
+  }
+  return best;
+}
+
+
 
 function findAllCombos(hand,type,len){
   const results=[];
@@ -1658,8 +1959,8 @@ function renderBotCards(){
   [1,2,3].forEach(pid=>{
     const wrap=document.getElementById(`bcards${pid}`);
     wrap.innerHTML='';
-    const n=Math.min(G.hands[pid].length,8);
-    for (let i=0;i<n;i++){
+    const n=Math.min(G.hands[pid].length, 13);
+    for(let i=0;i<n;i++){
       const d=document.createElement('div');
       d.className='card-back';
       wrap.appendChild(d);
@@ -1935,7 +2236,7 @@ function vibrate(pattern){
 // ═══════════════════════════════════════════════════════
 // START
 // ═══════════════════════════════════════════════════════
-newGame();
+showDiffScreen();
 </script>
 </body>
 </html>
