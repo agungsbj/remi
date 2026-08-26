@@ -1,635 +1,1941 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="id">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Remi Card Game</title>
-    <link rel="icon" href="logo.png" type="image/png">
-    <link rel="shortcut icon" href="logo.png" type="image/png">
-    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
-    <style>
-        body {
-            min-height: 100vh;
-            margin: 0;
-            padding: 0;
-            background-image: radial-gradient(circle, #0f2027 0%, #203a43 50%, #2c5364 100%);
-            font-family: Arial, sans-serif;
-        }
-        
-        /* Membuat tekstur meja */
-        .table-texture {
-            position: relative;
-        }
-        
-        .table-texture::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-image: url('https://www.transparenttextures.com/patterns/felt.png');
-            opacity: 0.3;
-            pointer-events: none;
-        }
-        
-        /* Elemen dekoratif meja judi */
-        .casino-table {
-            position: relative;
-            overflow: hidden;
-        }
-        
-        /* Tombol toggle untuk sidebar (visible di desktop dan mobile) */
-        #toggle-sidebar {
-            display: block;
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            z-index: 100;
-            background-color: rgba(22, 101, 52, 0.8);
-            color: white;
-            border-radius: 50%;
-            width: 50px;
-            height: 50px;
-            text-align: center;
-            line-height: 50px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
-            cursor: pointer;
-            transition: background-color 0.2s;
-        }
-        
-        #toggle-sidebar:hover {
-            background-color: rgba(22, 101, 52, 1);
-        }
-        
-        /* Desktop layout with sidebar shown/hidden */
-        .main-content-expanded {
-            width: 100% !important;
-        }
-        
-        /* Selectable (default: hide sidebar) */
-        .sidebar-left {
-            display: none;
-        }
-        
-        /* Media query untuk perangkat mobile */
-        @media (max-width: 768px) {
-            /* Buat area kartu yang dimainkan menjadi full-width */
-            #played-cards {
-                width: 100% !important;
-            }
-        }
-        
-        /* Style untuk sidebar ketika visible di mobile */
-        .sidebar-mobile-visible {
-            display: block !important;
-            position: fixed !important;
-            right: 0;
-            top: 0;
-            bottom: 0;
-            width: 80% !important;
-            max-width: 300px;
-            background-color: rgba(15, 23, 42, 0.95);
-            z-index: 50;
-            padding: 20px;
-            box-shadow: -5px 0 15px rgba(0,0,0,0.5);
-            overflow-y: auto;
-            transform: translateX(0);
-            transition: transform 0.3s ease;
-        }
-        
-        /* Overlay untuk sidebar di mobile */
-        .sidebar-overlay {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-color: rgba(0, 0, 0, 0.5);
-            z-index: 49;
-        }
-        
-        .sidebar-overlay.active {
-            display: block;
-        }
-        
-        .casino-table::after {
-            content: '';
-            position: absolute;
-            top: 6px;
-            left: 6px;
-            right: 6px;
-            bottom: 6px;
-            border: 2px dashed rgba(255, 215, 0, 0.3);
-            border-radius: 6px;
-            pointer-events: none;
-        }
-        
-        /* Kartu normal di tangan pemain */
-        .card {
-            width: 65px;
-            height: 95px;
-            background: white;
-            border-radius: 8px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-            transition: all 0.2s ease;
-            cursor: pointer;
-            position: relative;
-            margin: 0 -8px;
-        }
-        
-        /* Container untuk kartu pemain utama */
-        #game-area {
-            margin-top: 20px;
-        }
-        
-        /* Kartu di area permainan (lebih besar) */
-        #played-cards .card {
-            width: 110px;
-            height: 160px;
-            margin: 0 -8px;
-        }
-        
-        /* Kartu untuk pemain AI (pemain 1, 2, 3) */
-        #player-1-cards .card, #player-2-cards .card, #player-3-cards .card {
-            width: 55px;
-            height: 70px;
-            margin: 0 -15px;
-            font-size: 9px;
-            position: relative;
-            overflow: hidden;
-        }
-        
-        /* Container untuk kartu pemain */
-        .player-cards {
-            padding: 5px;
-            overflow: hidden;
-            min-height: 60px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
-        
-        /* Belakang kartu untuk pemain AI - desain sederhana dengan warna merah dan simbol sekop */
-        .card-back {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: #d32f2f;
-            border-radius: 6px;
-            border: 2px solid rgba(255,255,255,0.3);
-            box-sizing: border-box;
-            overflow: hidden;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        
-        .card-back::after {
-            content: '♠';
-            position: absolute;
-            color: rgba(255,255,255,0.8);
-            font-size: 40px;
-            text-shadow: 0 0 2px rgba(0,0,0,0.5);
-        }
-        
-        /* Mini kartu untuk area kartu 2 dan riwayat */
-        .mini-card {
-            width: 30px;
-            height: 45px;
-            background: white;
-            border-radius: 4px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            margin: 2px;
-            font-size: 10px;
-            position: relative;
-        }
-        
-        .card.selected {
-            transform: translateY(-20px);
-            box-shadow: 0 0 15px gold;
-            border: 2px solid gold;
-            z-index: 10;
-        }
-        
-        .player-area {
-            background: rgba(0,0,0,0.3);
-            border-radius: 10px;
-            padding: 10px;
-            margin: 10px;
-        }
-        
-        .player-name {  
-            color: white;
-            font-weight: bold;
-            text-align: center;
-            margin-bottom: 5px;
-        }
-        
-        .player-cards {
-            display: flex;
-            justify-content: center
-        }
-        
-        .action-panel {
-            display: flex;
-            justify-content: center;
-            gap: 10px;
-            margin: 15px 0;
-        }
-        
-        .action-button {
-            background: linear-gradient(135deg, #ffd54f 0%, #ffb300 100%);
-            color: #5d4037;
-            font-weight: bold;
-            padding: 8px 15px;
-            border-radius: 6px;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-            font-size: 0.85rem;
-        }
-        
-        .action-button:hover {
-            transform: scale(1.05);
-        }
-        
-        #played-cards {
-            min-height: 120px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            background: rgba(0,0,0,0.2);
-            border-radius: 10px;
-            padding: 10px;
-        }
-        
-        /* Media queries untuk tampilan mobile */
-        @media (max-width: 768px) {
-            .card {
-                width: 60px;
-                height: 85px;
-                margin: 0 -15px;
-                font-size: 12px;
-            }
-            
-            #played-cards .card {
-                width: 70px;
-                height: 100px;
-                margin: 0 -5px;
-            }
-            
-            #player-1-cards .card, #player-2-cards .card, #player-3-cards .card {
-                width: 30px;
-                height: 45px;
-                margin: 0 -20px;
-                font-size: 8px;
-            }
-            
-            .action-button {
-                padding: 6px 12px;
-                font-size: 0.8rem;
-            }
-            
-            .player-area {
-                padding: 5px;
-                margin: 5px;
-            }
-            
-            #played-cards > div {
-                height: 400px !important;
-            }
-            
-            #game-container {
-                padding: 0.5rem;
-            }
-            
-            .mini-card {
-                width: 25px;
-                height: 35px;
-                font-size: 8px;
-            }
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Remi</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@400;500;600&display=swap');
+
+:root {
+  --felt: #1a4a2e;
+  --felt-dark: #142d1e;
+  --felt-light: #1f5535;
+  --gold: #c9a84c;
+  --gold-light: #e8c97a;
+  --card-bg: #faf8f2;
+  --card-border: #e8e0d0;
+  --red: #c0392b;
+  --black: #1a1a2e;
+  --white: #faf8f2;
+  --shadow: rgba(0,0,0,0.5);
+  --p0: #4a9eff;
+  --p1: #e74c3c;
+  --p2: #2ecc71;
+  --p3: #f39c12;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: #0f1f15;
+  font-family: 'DM Sans', sans-serif;
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+}
+
+/* ── OUTER TABLE ── */
+#gameTable {
+  position: relative;
+  width: min(98vw, 900px);
+  height: min(96vh, 660px);
+  background: radial-gradient(ellipse at center, var(--felt-light) 0%, var(--felt) 50%, var(--felt-dark) 100%);
+  border-radius: 16px;
+  border: 6px solid #0a1a10;
+  box-shadow: 0 0 0 3px var(--gold), 0 0 60px rgba(0,0,0,0.8), inset 0 0 80px rgba(0,0,0,0.3);
+  overflow: hidden;
+}
+
+/* felt texture */
+#gameTable::before {
+  content: '';
+  position: absolute; inset: 0;
+  background-image: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px),
+    repeating-linear-gradient(90deg, transparent, transparent 2px, rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px);
+  border-radius: 16px;
+  pointer-events: none;
+}
+
+/* ── PLAYER ZONES ── */
+.player-zone {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+/* TOP player (Pemain 1 - pid 1) */
+.pzone-top {
+  top: 10px; left: 50%; transform: translateX(-50%);
+  flex-direction: column;
+  align-items: center;
+}
+
+/* LEFT player (Pemain 2 - pid 2) */
+.pzone-left {
+  left: 10px; top: 50%; transform: translateY(-50%);
+  flex-direction: column;
+  align-items: center;
+}
+
+/* RIGHT player (Pemain 3 - pid 3) */
+.pzone-right {
+  right: 10px; top: 50%; transform: translateY(-50%);
+  flex-direction: column;
+  align-items: center;
+}
+
+/* BOTTOM player (Human - pid 0) */
+.pzone-bottom {
+  bottom: 0; left: 50%; transform: translateX(-50%);
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  max-width: 680px;
+}
+
+/* ── PLAYER NAMEPLATE ── */
+.nameplate {
+  display: flex; align-items: center; gap: 6px;
+  background: rgba(0,0,0,0.55);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 20px;
+  padding: 4px 10px 4px 5px;
+  backdrop-filter: blur(4px);
+  transition: all 0.3s;
+  white-space: nowrap;
+}
+
+.nameplate.active {
+  border-color: var(--gold);
+  box-shadow: 0 0 12px rgba(201,168,76,0.5);
+  background: rgba(0,0,0,0.75);
+}
+
+.nameplate.finished { opacity: 0.5; }
+
+.avatar {
+  width: 26px; height: 26px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.np-info { display: flex; flex-direction: column; gap: 0; }
+.np-name { font-size: 0.68rem; font-weight: 600; color: #fff; line-height: 1.2; }
+.np-cards { font-size: 0.58rem; color: rgba(255,255,255,0.5); line-height: 1.2; }
+
+.turn-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--gold);
+  box-shadow: 0 0 6px var(--gold);
+  animation: pulse 1s infinite;
+  display: none;
+}
+.nameplate.active .turn-dot { display: block; }
+
+@keyframes pulse {
+  0%,100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(0.8); }
+}
+
+/* ── BOT CARD BACKS ── */
+.bot-cards {
+  display: flex;
+  gap: -4px;
+}
+
+.card-back {
+  width: 26px; height: 38px;
+  border-radius: 4px;
+  background: linear-gradient(135deg, #1a3a6e 0%, #0d1f45 100%);
+  border: 1px solid rgba(255,255,255,0.2);
+  box-shadow: 1px 1px 3px rgba(0,0,0,0.4);
+  margin-right: -14px;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.card-back::after {
+  content: '';
+  position: absolute; inset: 3px;
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 2px;
+}
+
+.pzone-left .bot-cards, .pzone-right .bot-cards {
+  flex-direction: column;
+  gap: 0;
+}
+.pzone-left .card-back, .pzone-right .card-back {
+  width: 38px; height: 26px;
+  margin-right: 0;
+  margin-bottom: -12px;
+}
+
+/* ── CENTER TABLE AREA ── */
+#tableCenter {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  width: 280px;
+  min-height: 140px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.table-ring {
+  position: absolute;
+  width: 260px; height: 130px;
+  border-radius: 50%;
+  border: 1px solid rgba(201,168,76,0.2);
+  top: 50%; left: 50%;
+  transform: translate(-50%,-50%);
+  pointer-events: none;
+}
+
+#tableCardsWrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  justify-content: center;
+  align-items: center;
+  min-height: 60px;
+  padding: 8px;
+}
+
+.table-empty-text {
+  color: rgba(201,168,76,0.35);
+  font-size: 0.7rem;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  font-family: 'Playfair Display', serif;
+}
+
+/* ── STATUS STRIP ── */
+#statusStrip {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, calc(-50% + 78px));
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.mode-chip {
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 0.6rem;
+  font-weight: 600;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+.chip-free { background: rgba(46,204,113,0.2); color: #2ecc71; border: 1px solid rgba(46,204,113,0.4); }
+.chip-single { background: rgba(74,158,255,0.2); color: #4a9eff; border: 1px solid rgba(74,158,255,0.4); }
+.chip-combo { background: rgba(243,156,18,0.2); color: #f39c12; border: 1px solid rgba(243,156,18,0.4); }
+.chip-rem { background: rgba(231,76,60,0.25); color: #e74c3c; border: 1px solid rgba(231,76,60,0.5); animation: remBlink 0.8s infinite; }
+
+@keyframes remBlink {
+  0%,100% { box-shadow: 0 0 6px rgba(231,76,60,0.4); }
+  50% { box-shadow: 0 0 14px rgba(231,76,60,0.8); }
+}
+
+.pass-chip {
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-size: 0.6rem;
+  color: rgba(255,255,255,0.4);
+  background: rgba(0,0,0,0.3);
+  border: 1px solid rgba(255,255,255,0.08);
+}
+
+#handArea.disabled {
+  opacity: 0.38;
+  pointer-events: none;
+  filter: saturate(0.25);
+}
+
+.bomb-badge {
+  position: absolute;
+  top: -8px; left: -5px;
+  background: #e67e22;
+  color: #fff;
+  font-size: 0.44rem;
+  font-weight: 700;
+  padding: 1px 4px;
+  border-radius: 4px;
+  letter-spacing: 0.2px;
+  white-space: nowrap;
+  z-index: 20;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.5);
+  pointer-events: none;
+}
+
+/* ── PLAYING CARDS ── */
+.card {
+  width: 44px; height: 62px;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s;
+  position: relative;
+  box-shadow: 1px 2px 6px rgba(0,0,0,0.3);
+  flex-shrink: 0;
+}
+
+.card .c-rank {
+  font-size: 0.9rem;
+  line-height: 1;
+  font-family: 'Playfair Display', serif;
+}
+.card .c-suit {
+  font-size: 1.1rem;
+  line-height: 1;
+}
+.card.red { color: var(--red); }
+.card.black { color: var(--black); }
+
+/* Table cards — slightly bigger */
+#tableCardsWrap .card {
+  width: 48px; height: 68px;
+  box-shadow: 2px 4px 10px rgba(0,0,0,0.4);
+}
+
+/* ── HUMAN HAND ── */
+#handArea {
+  position: absolute;
+  bottom: 0; left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 680px;
+  padding: 6px 12px 4px;
+  background: rgba(0,0,0,0.4);
+  backdrop-filter: blur(6px);
+  border-top: 1px solid rgba(201,168,76,0.2);
+  border-radius: 0 0 14px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: center;
+}
+
+#handCardsWrap {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 3px;
+  overflow-x: auto;
+  padding: 8px 4px 2px;
+  max-width: 100%;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  align-items: flex-end;
+  justify-content: center;
+  min-height: 84px;
+}
+
+#handCardsWrap::-webkit-scrollbar { display: none; }
+
+#handCardsWrap .card {
+  width: 42px; height: 60px;
+  cursor: grab;
+  transition: transform 0.15s, box-shadow 0.15s;
+  flex-shrink: 0;
+}
+
+#handCardsWrap .card.selected {
+  transform: translateY(-12px);
+  box-shadow: 0 8px 20px rgba(201,168,76,0.5), 0 0 0 2px var(--gold);
+  z-index: 10;
+}
+
+#handCardsWrap .card:hover:not(.selected) {
+  transform: translateY(-5px);
+  box-shadow: 2px 2px 12px rgba(0,0,0,0.5);
+  z-index: 5;
+}
+
+#handCardsWrap .card.dragging {
+  opacity: 0.5;
+  cursor: grabbing;
+}
+
+.drag-over-left { border-left: 2px solid var(--gold) !important; }
+.drag-over-right { border-right: 2px solid var(--gold) !important; }
+
+/* ── ACTIONS BAR ── */
+#actionsBar {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.btn {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 6px 14px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+}
+.btn:disabled { opacity: 0.3; cursor: not-allowed; transform: none !important; }
+.btn:not(:disabled):hover { transform: translateY(-1px); }
+.btn:not(:disabled):active { transform: translateY(0); }
+
+.btn-play { background: var(--gold); color: #1a1a1a; }
+.btn-play:not(:disabled):hover { background: var(--gold-light); }
+.btn-pass { background: rgba(255,255,255,0.12); color: rgba(255,255,255,0.8); border: 1px solid rgba(255,255,255,0.15); }
+.btn-rem { background: #c0392b; color: #fff; }
+.btn-rem:not(:disabled):hover { background: #e74c3c; }
+.btn-bomb { background: #e67e22; color: #fff; box-shadow: 0 0 10px rgba(230,126,34,0.4); }
+.btn-bomb:not(:disabled):hover { background: #f39c12; }
+.btn-skip { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.5); border: 1px solid rgba(255,255,255,0.1); font-size: 0.62rem; }
+.btn-new { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.6); border: 1px solid rgba(255,255,255,0.1); font-size: 0.62rem; }
+
+.selected-info {
+  font-size: 0.62rem;
+  color: var(--gold);
+  opacity: 0.9;
+  min-width: 80px;
+  text-align: center;
+}
+
+/* ── HINT TEXT ── */
+#hintBar {
+  font-size: 0.6rem;
+  color: rgba(255,255,255,0.4);
+  text-align: center;
+  min-height: 14px;
+  padding-bottom: 2px;
+}
+#hintBar .hl { color: var(--gold-light); }
+#hintBar .danger { color: #e74c3c; }
+
+/* ── SORT BUTTONS ── */
+#sortBar {
+  display: flex; gap: 4px;
+}
+.btn-sort {
+  font-size: 0.56rem;
+  padding: 3px 8px;
+  background: rgba(255,255,255,0.07);
+  color: rgba(255,255,255,0.5);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.btn-sort:hover { background: rgba(255,255,255,0.13); color: rgba(255,255,255,0.8); }
+
+/* ── LOG PANEL ── */
+#logToggle {
+  position: absolute;
+  top: 12px; right: 18px;
+  background: rgba(0,0,0,0.5);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px;
+  color: rgba(255,255,255,0.5);
+  font-size: 0.6rem;
+  padding: 4px 10px;
+  cursor: pointer;
+  z-index: 20;
+  font-family: 'DM Sans', sans-serif;
+  transition: all 0.15s;
+}
+#logToggle:hover { background: rgba(0,0,0,0.7); color: #fff; }
+
+#logPanel {
+  position: absolute;
+  top: 40px; right: 12px;
+  width: 230px;
+  max-height: 320px;
+  background: rgba(8,16,10,0.92);
+  border: 1px solid rgba(201,168,76,0.2);
+  border-radius: 10px;
+  overflow: hidden;
+  display: none;
+  flex-direction: column;
+  z-index: 100;
+  backdrop-filter: blur(10px);
+}
+#logPanel.open { display: flex; }
+
+#logTitle {
+  padding: 8px 12px;
+  font-size: 0.62rem;
+  font-weight: 600;
+  color: var(--gold);
+  border-bottom: 1px solid rgba(201,168,76,0.15);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+#logScroll {
+  overflow-y: auto;
+  padding: 6px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+}
+#logScroll::-webkit-scrollbar { width: 3px; }
+#logScroll::-webkit-scrollbar-thumb { background: rgba(201,168,76,0.3); border-radius: 2px; }
+
+.log-line { font-size: 0.62rem; line-height: 1.5; padding: 1px 4px; border-radius: 3px; }
+.log-line.system { color: var(--gold); }
+.log-line.play { color: rgba(255,255,255,0.8); }
+.log-line.pass { color: rgba(255,255,255,0.3); }
+.log-line.win { color: #2ecc71; font-weight: 600; }
+.log-line.rem { color: #e74c3c; font-weight: 600; }
+.log-line.bomb { color: #f39c12; font-weight: 600; }
+.log-line.info { color: rgba(255,255,255,0.35); font-style: italic; }
+
+/* ── GAME OVER OVERLAY ── */
+#gameOverlay {
+  position: absolute; inset: 0;
+  background: rgba(0,0,0,0.75);
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  z-index: 200;
+  border-radius: 16px;
+  backdrop-filter: blur(8px);
+}
+#gameOverlay.show { display: flex; }
+
+#gameOverlay h2 {
+  font-family: 'Playfair Display', serif;
+  color: var(--gold);
+  font-size: 2rem;
+  text-shadow: 0 0 30px rgba(201,168,76,0.5);
+}
+
+.result-list {
+  display: flex; flex-direction: column; gap: 6px; align-items: center;
+}
+.result-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 20px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 10px;
+  min-width: 200px;
+}
+.result-medal { font-size: 1.4rem; }
+.result-name { font-size: 0.9rem; font-weight: 600; color: #fff; }
+
+.btn-newgame {
+  background: var(--gold); color: #1a1a1a;
+  font-family: 'Playfair Display', serif;
+  font-size: 0.9rem;
+  padding: 10px 28px;
+  border-radius: 10px;
+  border: none;
+  cursor: pointer;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  margin-top: 8px;
+  transition: all 0.15s;
+}
+.btn-newgame:hover { background: var(--gold-light); transform: translateY(-2px); }
+
+/* ── TITLE ── */
+#gameTitle {
+  position: absolute;
+  top: 12px; left: 50%; transform: translateX(-50%);
+  font-family: 'Playfair Display', serif;
+  color: rgba(201,168,76,0.4);
+  font-size: 0.75rem;
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+/* ── TOAST NOTIFICATIONS ── */
+#toast {
+  position: absolute;
+  bottom: 110px; left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: rgba(0,0,0,0.85);
+  color: #fff;
+  padding: 7px 16px;
+  border-radius: 20px;
+  font-size: 0.68rem;
+  border: 1px solid rgba(255,255,255,0.1);
+  opacity: 0;
+  transition: all 0.3s;
+  pointer-events: none;
+  white-space: nowrap;
+  z-index: 150;
+}
+#toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+#toast.toast-err { border-color: rgba(192,57,43,0.5); color: #e74c3c; }
+
+/* ── NEW GAME BTN (corner) ── */
+#btnNewGame {
+  position: absolute;
+  top: 12px; left: 18px;
+}
+
+/* ── RULES BUTTON ── */
+#btnRules {
+  position: absolute;
+  top: 12px; left: 90px;
+}
+
+/* ── RULES PANEL ── */
+#rulesOverlay {
+  position: absolute; inset: 0;
+  background: rgba(0,0,0,0.82);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 300;
+  backdrop-filter: blur(6px);
+  border-radius: 16px;
+}
+#rulesOverlay.open { display: flex; }
+
+#rulesBox {
+  width: min(90%, 620px);
+  max-height: 88%;
+  background: #0e1f15;
+  border: 1px solid rgba(201,168,76,0.35);
+  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.7);
+  animation: slideUp 0.25s ease;
+}
+@keyframes slideUp {
+  from { transform: translateY(30px); opacity:0; }
+  to   { transform: translateY(0);    opacity:1; }
+}
+
+#rulesHeader {
+  padding: 14px 18px;
+  border-bottom: 1px solid rgba(201,168,76,0.2);
+  display: flex; align-items: center; justify-content: space-between;
+}
+#rulesHeader h3 {
+  font-family: 'Playfair Display', serif;
+  color: var(--gold);
+  font-size: 1.1rem;
+}
+#rulesClose {
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.1);
+  color: rgba(255,255,255,0.6);
+  border-radius: 6px;
+  padding: 4px 10px;
+  cursor: pointer;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.72rem;
+  transition: all 0.15s;
+}
+#rulesClose:hover { background: rgba(255,255,255,0.15); color:#fff; }
+
+#rulesBody {
+  overflow-y: auto;
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(201,168,76,0.3) transparent;
+}
+#rulesBody::-webkit-scrollbar { width: 4px; }
+#rulesBody::-webkit-scrollbar-thumb { background: rgba(201,168,76,0.3); border-radius: 4px; }
+
+.rule-section { display: flex; flex-direction: column; gap: 6px; }
+.rule-section h4 {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--gold);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  display: flex; align-items: center; gap: 6px;
+}
+.rule-section h4::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: rgba(201,168,76,0.2);
+}
+.rule-section p, .rule-section li {
+  font-size: 0.72rem;
+  color: rgba(255,255,255,0.7);
+  line-height: 1.65;
+}
+.rule-section ul { padding-left: 14px; display: flex; flex-direction: column; gap: 2px; }
+.rule-section li { list-style: disc; }
+.rule-section .hl { color: var(--gold-light); font-weight: 600; }
+.rule-section .danger { color: #e74c3c; font-weight: 600; }
+.rule-section .good { color: #2ecc71; font-weight: 600; }
+
+.rank-row {
+  display: flex; gap: 4px; flex-wrap: wrap; align-items: center;
+  font-size: 0.68rem; color: rgba(255,255,255,0.5);
+}
+.rcard {
+  background: #faf8f2; color: #1a1a2e;
+  border-radius: 4px; padding: 2px 6px;
+  font-size: 0.68rem; font-weight: 700;
+  border: 1px solid #e8e0d0;
+}
+.rcard.red { color: #c0392b; }
+.suit-row { display: flex; gap: 8px; margin-top: 2px; }
+.suit-item { display: flex; align-items: center; gap: 4px; font-size: 0.7rem; color: rgba(255,255,255,0.6); }
+.suit-item .rcard { font-size: 0.9rem; padding: 1px 5px; }
+
+/* ── ANIMASI KARTU ── */
+@keyframes cardDeal {
+  from { transform: translateY(-40px) scale(0.8); opacity: 0; }
+  to   { transform: translateY(0) scale(1); opacity: 1; }
+}
+@keyframes cardPlay {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.12) translateY(-6px); }
+  100% { transform: scale(1); }
+}
+@keyframes cardFlyIn {
+  from { transform: translateY(-60px) scale(0.7) rotate(-5deg); opacity: 0; }
+  to   { transform: translateY(0) scale(1) rotate(0deg); opacity: 1; }
+}
+@keyframes winPulse {
+  0%,100% { box-shadow: 0 0 0 0 rgba(46,204,113,0.5); }
+  50%     { box-shadow: 0 0 0 8px rgba(46,204,113,0); }
+}
+@keyframes remShake {
+  0%,100% { transform: translateX(0); }
+  20%     { transform: translateX(-6px) rotate(-2deg); }
+  40%     { transform: translateX(6px) rotate(2deg); }
+  60%     { transform: translateX(-4px); }
+  80%     { transform: translateX(4px); }
+}
+@keyframes bombFlash {
+  0%   { background: rgba(230,126,34,0); }
+  30%  { background: rgba(230,126,34,0.25); }
+  100% { background: rgba(230,126,34,0); }
+}
+@keyframes nameplateWin {
+  0%,100% { transform: scale(1); }
+  50%     { transform: scale(1.06); }
+}
+
+.card-deal-anim { animation: cardDeal 0.3s ease both; }
+.card-play-anim { animation: cardPlay 0.35s ease; }
+.card-flyin-anim { animation: cardFlyIn 0.4s cubic-bezier(.2,1.4,.6,1) both; }
+.table-rem-anim { animation: remShake 0.5s ease; }
+.table-bomb-anim { animation: bombFlash 0.8s ease; }
+.np-win-anim { animation: nameplateWin 0.5s ease 3; }
+</style>
 </head>
 <body>
-    <!-- Layar Menu Awal -->
-    <div id="start-menu" class="fixed inset-0 bg-gradient-to-br from-blue-900 to-black flex items-center justify-center z-50">
-        <div class="bg-white bg-opacity-90 rounded-lg p-8 max-w-md text-center shadow-2xl transform transition-all">
-            <h1 class="text-4xl font-bold mb-6 text-blue-800">Remi Card Game</h1>
-            
-            <div class="mb-6">
-                <h3 class="text-lg font-semibold mb-2 text-gray-700">Jumlah Pemain</h3>
-                <div class="flex justify-center space-x-4">
-                    <button class="player-count-btn w-12 h-12 rounded-full bg-blue-100 hover:bg-blue-200 focus:bg-blue-500 focus:text-white focus:outline-none transition-colors" data-count="2">2</button>
-                    <button class="player-count-btn w-12 h-12 rounded-full bg-blue-100 hover:bg-blue-200 focus:bg-blue-500 focus:text-white focus:outline-none transition-colors" data-count="3">3</button>
-                    <button class="player-count-btn w-12 h-12 rounded-full bg-blue-100 hover:bg-blue-200 focus:bg-blue-500 focus:text-white focus:outline-none transition-colors active" data-count="4">4</button>
-                </div>
-            </div>
-            
-            <div class="mb-8">
-                <h3 class="text-lg font-semibold mb-2 text-gray-700">Level Kesulitan</h3>
-                <div class="flex justify-center space-x-4">
-                    <button class="difficulty-btn px-4 py-2 rounded-lg bg-green-100 hover:bg-green-200 focus:bg-green-500 focus:text-white focus:outline-none transition-colors" data-difficulty="easy">Mudah</button>
-                    <button class="difficulty-btn px-4 py-2 rounded-lg bg-yellow-100 hover:bg-yellow-200 focus:bg-yellow-500 focus:text-white focus:outline-none transition-colors active" data-difficulty="medium">Sedang</button>
-                    <button class="difficulty-btn px-4 py-2 rounded-lg bg-red-100 hover:bg-red-200 focus:bg-red-500 focus:text-white focus:outline-none transition-colors" data-difficulty="hard">Sulit</button>
-                </div>
-            </div>
-            
-            <button id="start-game-button" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-full transition duration-300 transform hover:scale-105 shadow-lg">
-                Mulai Permainan
-            </button>
+
+<div id="gameTable">
+  <div id="gameTitle">♠ REMI ♥</div>
+
+  <!-- NEW GAME BTN -->
+  <button class="btn btn-new" id="btnNewGame" onclick="newGame()">🔄 Baru</button>
+  <button class="btn btn-new" id="btnRules" onclick="toggleRules()">📖 Aturan</button>
+
+
+  <!-- RULES OVERLAY -->
+  <div id="rulesOverlay">
+    <div id="rulesBox">
+      <div id="rulesHeader">
+        <h3>📖 Aturan Permainan</h3>
+        <button id="rulesClose" onclick="toggleRules()">✕ Tutup</button>
+      </div>
+      <div id="rulesBody">
+
+        <div class="rule-section">
+          <h4>🎯 Dasar</h4>
+          <ul>
+            <li>2–4 pemain, 52 kartu tanpa joker</li>
+            <li>Setiap pemain dapat <span class="hl">13 kartu</span></li>
+            <li>Tujuan: <span class="good">habiskan kartu duluan!</span></li>
+            <li>Pemain dengan <span class="hl">3♦</span> wajib membuka dengan kartu itu (single)</li>
+          </ul>
         </div>
+
+        <div class="rule-section">
+          <h4>🔢 Urutan Nilai Kartu</h4>
+          <div class="rank-row">
+            <span class="rcard">3</span>
+            <span style="color:rgba(255,255,255,0.3)">‹</span>
+            <span class="rcard">4</span>
+            <span style="color:rgba(255,255,255,0.3)">‹</span>
+            <span class="rcard">5</span>
+            <span style="color:rgba(255,255,255,0.3)">‹</span>
+            <span class="rcard">6</span>
+            <span style="color:rgba(255,255,255,0.3)">‹</span>
+            <span class="rcard">7</span>
+            <span style="color:rgba(255,255,255,0.3)">‹</span>
+            <span class="rcard">8</span>
+            <span style="color:rgba(255,255,255,0.3)">‹</span>
+            <span class="rcard">9</span>
+            <span style="color:rgba(255,255,255,0.3)">‹</span>
+            <span class="rcard">10</span>
+            <span style="color:rgba(255,255,255,0.3)">‹</span>
+            <span class="rcard">J</span>
+            <span style="color:rgba(255,255,255,0.3)">‹</span>
+            <span class="rcard">Q</span>
+            <span style="color:rgba(255,255,255,0.3)">‹</span>
+            <span class="rcard">K</span>
+            <span style="color:rgba(255,255,255,0.3)">‹</span>
+            <span class="rcard">A</span>
+            <span style="color:rgba(255,255,255,0.3)">‹</span>
+            <span class="rcard" style="color:#e67e22;border-color:#e67e22">2 ★</span>
+          </div>
+          <p style="margin-top:4px">Urutan jenis (kecil → besar):</p>
+          <div class="suit-row">
+            <div class="suit-item"><span class="rcard red">♦</span> Diamond</div>
+            <span style="color:rgba(255,255,255,0.3)">‹</span>
+            <div class="suit-item"><span class="rcard">♣</span> Keriting</div>
+            <span style="color:rgba(255,255,255,0.3)">‹</span>
+            <div class="suit-item"><span class="rcard red">♥</span> Love</div>
+            <span style="color:rgba(255,255,255,0.3)">‹</span>
+            <div class="suit-item"><span class="rcard">♠</span> Sekop</div>
+          </div>
+        </div>
+
+        <div class="rule-section">
+          <h4>▶ Mode Single</h4>
+          <ul>
+            <li>Pemain berikutnya harus buang kartu <span class="hl">suit sama</span> dan <span class="hl">nilai lebih besar</span></li>
+            <li>Jika tidak bisa → boleh <span class="hl">PASS</span></li>
+            <li>Jika semua PASS → pemain terakhir yang buang kartu <span class="good">menang ronde</span></li>
+            <li>Pemenang ronde bebas pilih: lanjut single atau kombinasi</li>
+          </ul>
+        </div>
+
+        <div class="rule-section">
+          <h4>🧩 Kombinasi</h4>
+          <ul>
+            <li><span class="hl">Tris</span> — 3 kartu angka sama. Contoh: 7♦ 7♥ 7♣</li>
+            <li><span class="hl">Seri (Straight)</span> — min 3 kartu berurutan, beda jenis boleh. Dibandingkan dari kartu terakhir (tertinggi)</li>
+            <li><span class="hl">Seri Flush</span> — seri 1 jenis. Hanya bisa dilawan seri flush juga</li>
+            <li><span class="hl">Full House</span> — 3 kartu sama + 2 kartu pasangan. Tris harus lebih besar dari pair</li>
+            <li><span class="danger">Kartu 2 tidak boleh masuk seri</span></li>
+            <li>Harus dilawan kombinasi <span class="hl">jenis sama</span> yang lebih besar</li>
+          </ul>
+        </div>
+
+        <div class="rule-section">
+          <h4>💣 REM (Kartu 2)</h4>
+          <ul>
+            <li>Gunakan kartu <span class="hl">2</span> saat mode Single untuk <span class="good">memotong ronde</span></li>
+            <li>Tidak perlu ikut suit — langsung menang ronde</li>
+            <li><span class="danger">Tidak bisa REM saat mode kombinasi</span></li>
+          </ul>
+        </div>
+
+        <div class="rule-section">
+          <h4>💥 BOM (Counter REM)</h4>
+          <ul>
+            <li>Hanya bisa saat ada REM aktif</li>
+            <li>Jenis BOM: <span class="hl">Quartet</span> (4 kartu sama angka) atau <span class="hl">Straight Flush</span> (min 5 kartu seri 1 jenis)</li>
+            <li>Pemain yang BOM langsung <span class="good">menang game!</span></li>
+            <li><span class="danger">Jika skip BOM pertama → tidak bisa BOM di REM berikutnya</span></li>
+            <li><span class="danger">Jika pernah REM → tidak bisa pakai BOM</span></li>
+          </ul>
+        </div>
+
+        <div class="rule-section">
+          <h4>🏁 Akhir Game</h4>
+          <ul>
+            <li>Siapa yang habis kartu duluan = <span class="good">Juara 1</span></li>
+            <li>Ranking 2–4 ditentukan dari <span class="hl">jumlah kartu sisa</span> (paling sedikit = lebih baik)</li>
+            <li>Tiebreaker: kartu tertinggi lebih kecil = ranking lebih baik</li>
+          </ul>
+        </div>
+
+      </div>
     </div>
-    
-    <!-- Pop-up pemenang -->
-    <div id="winner-popup" class="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 hidden">
-        <div class="bg-white rounded-lg p-8 max-w-md text-center">
-            <h2 class="text-3xl font-bold mb-4">Selamat!</h2>
-            <p id="winner-message" class="text-xl mb-6">Pemain 1 memenangkan permainan!</p>
-            <button id="new-game-button" class="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-3 px-6 rounded-full transition duration-300 transform hover:scale-105">
-                Main Lagi
-            </button>
-        </div>
+  </div>
+
+  <!-- LOG TOGGLE -->
+  <button id="logToggle" onclick="toggleLog()">📋 LOG</button>
+  <div id="logPanel">
+    <div id="logTitle">Game Log</div>
+    <div id="logScroll"></div>
+  </div>
+
+  <!-- TOP PLAYER (pid 1) -->
+  <div class="player-zone pzone-top" id="pzone1">
+    <div class="nameplate" id="np1">
+      <div class="avatar" id="av1">P1</div>
+      <div class="np-info">
+        <div class="np-name" id="npname1">Pemain 1</div>
+        <div class="np-cards" id="npcards1">13 kartu</div>
+      </div>
+      <div class="turn-dot"></div>
     </div>
-    
-    <!-- Overlay untuk sidebar di mobile -->
-    <div class="sidebar-overlay" id="sidebar-overlay"></div>
-    
-    <!-- Tombol toggle untuk sidebar di mobile -->
-    <button id="toggle-sidebar" class="text-2xl">📋</button>
-    
-    <div class="container mx-auto min-h-screen flex flex-col">
-        
-        <!-- Indikator giliran pemain -->
-        <!-- <div id="turn-indicator" class="text-center py-2 mb-2 bg-yellow-500 text-white font-bold rounded-lg">
-            Giliran: <span id="current-player-name">Anda</span>
-        </div> -->
-        
-        <!-- Area pemain lawan -->
-        <div class="grid grid-cols-3 gap-4 mb-4">
-            <div class="player-area" id="player-1-area">
-                <div class="player-name flex items-center justify-center">
-                    <div id="player-1-turn" class="px-2 py-1 rounded bg-gray-600 text-white text-xs font-bold transition-colors duration-300">Pemain 1</div>
-                </div>
-                <div class="player-cards" id="player-1-cards"></div>
-            </div>
-            
-            <div class="player-area" id="player-2-area">
-                <div class="player-name flex items-center justify-center">
-                    <div id="player-2-turn" class="px-2 py-1 rounded bg-gray-600 text-white text-xs font-bold transition-colors duration-300">Pemain 2</div>
-                </div>
-                <div class="player-cards" id="player-2-cards"></div>
-            </div>
-            
-            <div class="player-area" id="player-3-area">
-                <div class="player-name flex items-center justify-center">
-                    <div id="player-3-turn" class="px-2 py-1 rounded bg-gray-600 text-white text-xs font-bold transition-colors duration-300">Pemain 3</div>
-                </div>
-                <div class="player-cards" id="player-3-cards"></div>
-            </div>
-        </div>
-        
-        <!-- Area kartu yang dimainkan - dengan ukuran tetap -->
-        <div class="my-4">
-            <div class="flex" id="main-content-area">
-                <!-- Sidebar kiri (Kartu 2 dan Riwayat) -->
-                <div class="w-1/5 px-2 flex flex-col sidebar-left">
-                    <!-- Area untuk kartu 2 yang telah dimainkan -->
-                    <div id="played-twos" class="mb-4">
-                        <h3 class="text-white text-center font-bold mb-2 bg-green-800 py-1 rounded text-sm">Kartu 2</h3>
-                        <div class="flex flex-wrap gap-1 bg-black bg-opacity-30 rounded-lg p-2 h-28">
-                            <!-- Kartu 2 akan ditampilkan di sini sebagai mini-card -->
-                        </div>
-                    </div>
-                    
-                    <!-- Area riwayat kartu yang dibuang (dipindah ke bawah kartu 2) -->
-                    <div id="card-history" class="mb-2">
-                        <h3 class="text-white text-center font-bold mb-2 bg-green-800 py-1 rounded text-sm">Riwayat Kartu</h3>
-                        <div id="card-history-list" class="bg-black bg-opacity-30 rounded-lg p-2 h-36 overflow-y-auto">
-                            <!-- Riwayat kartu akan ditampilkan di sini -->
-                        </div>
-                    </div>
-                    
-                    <!-- Area kartu yang sudah keluar (dikelompokkan berdasarkan nilai) -->
-                    <div id="cards-played-summary" class="mb-2">
-                        <h3 class="text-white text-center font-bold mb-2 bg-green-800 py-1 rounded text-sm">Kartu Keluar</h3>
-                        <div id="cards-played-list" class="bg-black bg-opacity-30 rounded-lg p-2 h-36 overflow-y-auto">
-                            <!-- Kartu-kartu yang sudah keluar akan ditampilkan di sini -->
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Area untuk kartu yang sedang dimainkan (diperluas) -->
-                <div id="played-cards" class="w-4/5 flex flex-col items-center justify-center px-4 main-content">
-                    <div class="flex justify-center items-center bg-red-800 rounded-lg p-2 h-72 w-full mb-0 table-texture casino-table" style="box-shadow: inset 0 0 20px rgba(0,0,0,0.5); border: 4px solid #8B0000;">
-                        <!-- Kartu yang dimainkan akan ditampilkan di sini -->
-                    </div>
-                </div>
-            </div>
-        </div>
-        
-        <!-- Panel aksi (dipindahkan ke atas) -->
-        <div id="action-buttons" class="action-panel mt-0 mb-0" style="margin-top: -20px;">
-            <button id="play-button" class="action-button bg-yellow-500">
-                Buang
-            </button>
-            <button id="pass-button" class="action-button bg-blue-500">
-                Lewat
-            </button>
-            <button id="sort-button" class="action-button bg-green-500">
-                Urutkan
-            </button>
-        </div>
-        
-        <!-- Area pemain utama -->
-        <div class="mt-0">
-            <div class="player-area" id="player-0-area">
-                <div class="player-name flex items-center justify-center">
-                    <div id="player-0-turn" class="px-2 py-1 rounded bg-gray-600 text-white text-xs font-bold transition-colors duration-300">Anda</div>
-                </div>
-                <div class="player-cards" id="player-hand"></div>
-            </div>
-            
-            <!-- Area pesan error telah dipindahkan dan dijadikan popup -->
-        </div>
+    <div class="bot-cards" id="bcards1"></div>
+  </div>
+
+  <!-- LEFT PLAYER (pid 2) -->
+  <div class="player-zone pzone-left" id="pzone2">
+    <div class="nameplate" id="np2">
+      <div class="avatar" id="av2">P2</div>
+      <div class="np-info">
+        <div class="np-name" id="npname2">Pemain 2</div>
+        <div class="np-cards" id="npcards2">13 kartu</div>
+      </div>
+      <div class="turn-dot"></div>
     </div>
-    
-    <!-- Popup pesan error (seperti SweetAlert) -->
-    <div id="error-message" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
-        <div class="bg-white rounded-lg p-6 max-w-md mx-4 shadow-xl transform transition-all ease-in-out duration-300 scale-100">
-            <div class="flex items-center mb-4">
-                <div class="flex-shrink-0 bg-red-100 rounded-full p-2 mr-3">
-                    <svg class="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                    </svg>
-                </div>
-                <h3 class="text-lg font-medium text-red-800">Kesalahan!</h3>
-            </div>
-            <div id="error-message-text" class="text-gray-700 mb-4 text-center">
-                <!-- Pesan error akan ditampilkan di sini -->
-            </div>
-            <div class="flex justify-center">
-                <button id="error-close-button" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline transition duration-150 ease-in-out">
-                    Tutup
-                </button>
-            </div>
-        </div>
-        </div>
+    <div class="bot-cards" id="bcards2"></div>
+  </div>
+
+  <!-- RIGHT PLAYER (pid 3) -->
+  <div class="player-zone pzone-right" id="pzone3">
+    <div class="nameplate" id="np3">
+      <div class="avatar" id="av3">P3</div>
+      <div class="np-info">
+        <div class="np-name" id="npname3">Pemain 3</div>
+        <div class="np-cards" id="npcards3">13 kartu</div>
+      </div>
+      <div class="turn-dot"></div>
     </div>
-    
-    <script src="init.js"></script>
-    <script src="https://unpkg.com/howler@2.2.3/dist/howler.min.js"></script>
-    <script src="card.js"></script>
-    <script src="player.js"></script>
-    <script src="sounds.js"></script>
-    <script src="combinations.js"></script>
-    <script src="game.js"></script>
-    
-    <!-- JavaScript untuk tombol toggle sidebar di desktop dan mobile (revisi) -->
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            // Simpan referensi ke elemen DOM
-            const toggleButton = document.getElementById('toggle-sidebar');
-            const sidebar = document.querySelector('.sidebar-left');
-            const overlay = document.getElementById('sidebar-overlay');
-            const playedCards = document.getElementById('played-cards');
-            
-            // Setting awal - sembunyikan sidebar dan sidebar sudah tersembunyi
-            sidebar.style.display = 'none';
-            playedCards.classList.add('main-content-expanded');
-            toggleButton.textContent = '📋';
-            toggleButton.setAttribute('title', 'Tampilkan Sidebar');
-            
-            // Toggle sidebar saat tombol diklik
-            toggleButton.addEventListener('click', function() {
-                // Sembunyikan atau tampilkan sidebar berdasarkan status saat ini
-                if (sidebar.style.display === 'none' || sidebar.style.display === '') {
-                    // Tampilkan sidebar
-                    sidebar.style.display = 'flex';
-                    sidebar.classList.add('sidebar-mobile-visible');
-                    playedCards.classList.remove('main-content-expanded');
-                    toggleButton.textContent = '◀️';
-                    toggleButton.setAttribute('title', 'Sembunyikan Sidebar');
-                    
-                    // Tampilkan overlay pada perangkat mobile
-                    if (window.innerWidth <= 768) {
-                        overlay.classList.add('active');
-                    }
-                } else {
-                    // Sembunyikan sidebar
-                    sidebar.style.display = 'none';
-                    sidebar.classList.remove('sidebar-mobile-visible');
-                    playedCards.classList.add('main-content-expanded');
-                    toggleButton.textContent = '📋';
-                    toggleButton.setAttribute('title', 'Tampilkan Sidebar');
-                    overlay.classList.remove('active');
-                }
-            });
-            
-            // Tutup sidebar saat overlay diklik
-            overlay.addEventListener('click', function() {
-                sidebar.style.display = 'none';
-                sidebar.classList.remove('sidebar-mobile-visible');
-                playedCards.classList.add('main-content-expanded');
-                toggleButton.textContent = '📋';
-                toggleButton.setAttribute('title', 'Tampilkan Sidebar');
-                overlay.classList.remove('active');
-            });
-            
-            // Atur ulang tampilan saat resize window
-            window.addEventListener('resize', function() {
-                // Jika beralih ke tampilan desktop, hapus class mobile
-                if (window.innerWidth > 768) {
-                    overlay.classList.remove('active');
-                }
-            });
-        });
-        
-        // Variabel untuk menyimpan pilihan pemain
-        let selectedPlayerCount = 4; // Default: 4 pemain
-        let selectedDifficulty = 'medium'; // Default: level sedang
-        
-        // Event handler untuk tombol jumlah pemain
-        document.querySelectorAll('.player-count-btn').forEach(btn => {
-            btn.addEventListener('click', function() {
-                // Hapus class active dari semua tombol
-                document.querySelectorAll('.player-count-btn').forEach(b => {
-                    b.classList.remove('active', 'bg-blue-500', 'text-white');
-                    b.classList.add('bg-blue-100');
-                });
-                
-                // Tambahkan class active ke tombol yang diklik
-                this.classList.add('active', 'bg-blue-500', 'text-white');
-                this.classList.remove('bg-blue-100');
-                
-                // Simpan jumlah pemain yang dipilih
-                selectedPlayerCount = parseInt(this.getAttribute('data-count'));
-                console.log('Jumlah pemain dipilih:', selectedPlayerCount);
-            });
-        });
-        
-        // Event handler untuk tombol level kesulitan
-        document.querySelectorAll('.difficulty-btn').forEach(btn => {
-            btn.addEventListener('click', function() {
-                // Hapus class active dari semua tombol
-                document.querySelectorAll('.difficulty-btn').forEach(b => {
-                    b.classList.remove('active', 'bg-green-500', 'bg-yellow-500', 'bg-red-500', 'text-white');
-                    if (b.getAttribute('data-difficulty') === 'easy') {
-                        b.classList.add('bg-green-100');
-                    } else if (b.getAttribute('data-difficulty') === 'medium') {
-                        b.classList.add('bg-yellow-100');
-                    } else {
-                        b.classList.add('bg-red-100');
-                    }
-                });
-                
-                // Tambahkan class active ke tombol yang diklik
-                this.classList.add('active', 'text-white');
-                if (this.getAttribute('data-difficulty') === 'easy') {
-                    this.classList.add('bg-green-500');
-                } else if (this.getAttribute('data-difficulty') === 'medium') {
-                    this.classList.add('bg-yellow-500');
-                } else {
-                    this.classList.add('bg-red-500');
-                }
-                
-                // Simpan level kesulitan yang dipilih
-                selectedDifficulty = this.getAttribute('data-difficulty');
-                console.log('Level kesulitan dipilih:', selectedDifficulty);
-            });
-        });
-        
-        // Set tombol default yang aktif
-        document.querySelector('.player-count-btn[data-count="4"]').classList.add('active', 'bg-blue-500', 'text-white');
-        document.querySelector('.player-count-btn[data-count="4"]').classList.remove('bg-blue-100');
-        
-        document.querySelector('.difficulty-btn[data-difficulty="medium"]').classList.add('active', 'bg-yellow-500', 'text-white');
-        document.querySelector('.difficulty-btn[data-difficulty="medium"]').classList.remove('bg-yellow-100');
-        
-        // Event handler untuk tombol mulai permainan
-        document.getElementById('start-game-button').addEventListener('click', function() {
-            // Sembunyikan menu awal
-            document.getElementById('start-menu').style.display = 'none';
-            
-            // Mulai permainan dengan jumlah pemain dan level kesulitan yang dipilih
-            console.log(`Memulai permainan dengan ${selectedPlayerCount} pemain dan level ${selectedDifficulty}`);
-            initGame(selectedPlayerCount, selectedDifficulty);
-        });
-        
-        // Event handler untuk tombol main lagi setelah game berakhir
-        document.getElementById('new-game-button').addEventListener('click', function() {
-            // Tampilkan menu awal lagi
-            document.getElementById('start-menu').style.display = 'flex';
-            document.getElementById('winner-popup').classList.add('hidden');
-        });
-    </script>
+    <div class="bot-cards" id="bcards3"></div>
+  </div>
+
+  <!-- CENTER TABLE -->
+  <div id="tableCenter">
+    <div class="table-ring"></div>
+    <div id="tableCardsWrap">
+      <span class="table-empty-text">Meja Kosong</span>
+    </div>
+    <div id="statusStrip"></div>
+  </div>
+
+  <!-- BOTTOM: HUMAN -->
+  <div id="handArea">
+    <!-- Sort buttons + player info -->
+    <div style="display:flex;align-items:center;gap:8px;width:100%;justify-content:space-between;padding:0 8px;">
+      <div class="nameplate" id="np0" style="background:transparent;border:none;padding:0;">
+        <div class="avatar" id="av0" style="background:rgba(74,158,255,0.2);color:#4a9eff;">🧑</div>
+        <div class="np-info">
+          <div class="np-name" style="color:#4a9eff;" id="npname0">Kamu</div>
+          <div class="np-cards" id="npcards0">13 kartu</div>
+        </div>
+        <div class="turn-dot"></div>
+      </div>
+      <div id="sortBar">
+        <button class="btn-sort" onclick="sortByValue()">Nilai ↑</button>
+        <button class="btn-sort" onclick="sortBySuit()">Jenis</button>
+        <button class="btn-sort" onclick="sortByRank()">Angka</button>
+        <button class="btn-sort" onclick="clearSelection()">✕ Batal</button>
+      </div>
+    </div>
+
+    <!-- Hand cards (draggable to reorder) -->
+    <div id="handCardsWrap"></div>
+
+    <!-- Actions -->
+    <div id="actionsBar">
+      <button class="btn btn-play" id="btnPlay" onclick="humanPlay()">▶ Main</button>
+      <button class="btn btn-pass" id="btnPass" onclick="humanPass()">⏭ Pass</button>
+      <button class="btn btn-rem" id="btnRem" onclick="humanRem()">💣 REM</button>
+      <button class="btn btn-bomb" id="btnBomb" onclick="humanBomb()">💥 BOM</button>
+      <button class="btn btn-skip" id="btnSkipBomb" onclick="humanSkipBomb()" style="display:none">❌ Skip Bom</button>
+      <span class="selected-info" id="selInfo"></span>
+    </div>
+    <div id="hintBar"></div>
+  </div>
+
+  <!-- GAME OVER OVERLAY -->
+  <div id="gameOverlay">
+    <h2>GAME SELESAI</h2>
+    <div class="result-list" id="resultList"></div>
+    <button class="btn-newgame" onclick="newGame()">Main Lagi</button>
+  </div>
+
+  <!-- TOAST -->
+  <div id="toast"></div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+// CONSTANTS
+// ═══════════════════════════════════════════════════════
+const SUITS = ['♦','♣','♥','♠'];
+const RANKS = ['3','4','5','6','7','8','9','10','J','Q','K','A','2'];
+const PLAYER_NAMES = ['Saya','Pemain 1','Pemain 2','Pemain 3'];
+const COLORS = ['#4a9eff','#e74c3c','#2ecc71','#f39c12'];
+const AVATARS = ['🧑','👾','🤖','👻'];
+
+// ═══════════════════════════════════════════════════════
+// GAME STATE
+// ═══════════════════════════════════════════════════════
+let G = {};
+let selected = [];    // indices into G.hands[0] (current visual order)
+let handOrder = [];   // visual order of human hand (indices into original dealt hand)
+let dragSrcIdx = null;
+
+function newGame() {
+  document.getElementById('gameOverlay').classList.remove('show');
+  const deck = [];
+  for (const s of SUITS) for (const r of RANKS) deck.push({r,s});
+  shuffle(deck);
+  const hands = [[],[],[],[]];
+  for (let i=0;i<52;i++) hands[i%4].push(deck[i]);
+  for (const h of hands) sortHand(h);
+
+  G = {
+    hands,
+    turn: hands.findIndex(h=>h.some(c=>c.r==='3'&&c.s==='♦')),
+    mode: 'free',
+    comboType: null,
+    tableCards: [],
+    tablePlayer: -1,
+    passCount: 0,
+    remActive: false,
+    remPlayer: -1,
+    usedRem: [false,false,false,false],
+    skippedBomb: [false,false,false,false],
+    bombOpportunity: false,
+    finished: [],
+    firstPlay: true,
+    isGameOver: false,
+  };
+
+  selected = [];
+  handOrder = G.hands[0].map((_,i)=>i);
+
+  clearLog();
+  log('system','🎮 Game baru! 52 kartu dibagi.');
+  log('system',`▶ ${PLAYER_NAMES[G.turn]} punya 3♦ — mulai!`);
+
+  renderAll();
+  animateDealHand();
+  updateHint();
+  if (G.turn !== 0) setTimeout(runAI, 900);
+}
+
+// ═══════════════════════════════════════════════════════
+// CARD HELPERS
+// ═══════════════════════════════════════════════════════
+const cardVal = c => RANKS.indexOf(c.r)*4 + SUITS.indexOf(c.s);
+const cardStr = c => c.r+c.s;
+const cardsStr = arr => arr.map(cardStr).join(' ');
+const isRed = c => c.s==='♦'||c.s==='♥';
+const sortHand = h => h.sort((a,b)=>cardVal(a)-cardVal(b));
+function shuffle(a){ for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} }
+
+// ═══════════════════════════════════════════════════════
+// COMBINATION DETECTION
+// ═══════════════════════════════════════════════════════
+function detectCombo(cards) {
+  if (!cards||cards.length===0) return {type:null,valid:false};
+  if (cards.length===1) return {type:'single',valid:true};
+  if (cards.length===3){
+    if (cards.every(c=>c.r===cards[0].r)) return {type:'tris',valid:true};
+    return checkStraight(cards);
+  }
+  if (cards.length===5){
+    const fh=checkFullHouse(cards);
+    if (fh.valid) return fh;
+    return checkStraight(cards);
+  }
+  if (cards.length>=3) return checkStraight(cards);
+  return {type:null,valid:false};
+}
+
+function checkStraight(cards) {
+  const sorted=[...cards].sort((a,b)=>RANKS.indexOf(a.r)-RANKS.indexOf(b.r));
+  if (sorted.some(c=>c.r==='2')) return {type:null,valid:false};
+  for (let i=1;i<sorted.length;i++)
+    if (RANKS.indexOf(sorted[i].r)-RANKS.indexOf(sorted[i-1].r)!==1) return {type:null,valid:false};
+  const flush=cards.every(c=>c.s===cards[0].s);
+  return {type:flush?'straightflush':'straight',valid:true,sorted};
+}
+
+function checkFullHouse(cards) {
+  if (cards.length!==5) return {valid:false};
+  const counts={};
+  for (const c of cards) counts[c.r]=(counts[c.r]||0)+1;
+  const entries=Object.entries(counts);
+  if (entries.length!==2) return {valid:false};
+  const trisEntry=entries.find(e=>e[1]===3);
+  const pairEntry=entries.find(e=>e[1]===2);
+  if (!trisEntry||!pairEntry) return {valid:false};
+  if (RANKS.indexOf(trisEntry[0])<RANKS.indexOf(pairEntry[0])) return {valid:false};
+  return {type:'fullhouse',valid:true,trisRank:trisEntry[0],pairRank:pairEntry[0]};
+}
+
+function isQuartet(cards){ return cards.length===4&&cards.every(c=>c.r===cards[0].r); }
+
+// ═══════════════════════════════════════════════════════
+// COMPARISON
+// ═══════════════════════════════════════════════════════
+function canBeat(played,table,tableType) {
+  if (played.length!==table.length) return false;
+  const pt=detectCombo(played);
+  if (!pt.valid) return false;
+  if (tableType==='single'){
+    if (pt.type!=='single') return false;
+    if (played[0].s!==table[0].s) return false;
+    return cardVal(played[0])>cardVal(table[0]);
+  }
+  if (tableType==='tris'){
+    if (pt.type!=='tris') return false;
+    return RANKS.indexOf(played[0].r)>RANKS.indexOf(table[0].r);
+  }
+  if (tableType==='straight'||tableType==='straightflush'){
+    if (tableType==='straightflush'&&pt.type!=='straightflush') return false;
+    if (pt.type!=='straight'&&pt.type!=='straightflush') return false;
+    const ps=[...played].sort((a,b)=>RANKS.indexOf(a.r)-RANKS.indexOf(b.r));
+    const ts=[...table].sort((a,b)=>RANKS.indexOf(a.r)-RANKS.indexOf(b.r));
+    const pL=ps[ps.length-1],tL=ts[ts.length-1];
+    if (RANKS.indexOf(pL.r)!==RANKS.indexOf(tL.r)) return RANKS.indexOf(pL.r)>RANKS.indexOf(tL.r);
+    return SUITS.indexOf(pL.s)>SUITS.indexOf(tL.s);
+  }
+  if (tableType==='fullhouse'){
+    if (pt.type!=='fullhouse') return false;
+    const tc=detectCombo(table);
+    return RANKS.indexOf(pt.trisRank)>RANKS.indexOf(tc.trisRank);
+  }
+  return false;
+}
+
+// ═══════════════════════════════════════════════════════
+// SORT FUNCTIONS
+// ═══════════════════════════════════════════════════════
+function sortByValue(){ handOrder=[...handOrder].sort((a,b)=>cardVal(G.hands[0][a])-cardVal(G.hands[0][b])); selected=[]; renderHand(); }
+function sortBySuit(){ handOrder=[...handOrder].sort((a,b)=>{ const ca=G.hands[0][a],cb=G.hands[0][b]; const sd=SUITS.indexOf(ca.s)-SUITS.indexOf(cb.s); return sd!==0?sd:RANKS.indexOf(ca.r)-RANKS.indexOf(cb.r); }); selected=[]; renderHand(); }
+function sortByRank(){ handOrder=[...handOrder].sort((a,b)=>{ const ca=G.hands[0][a],cb=G.hands[0][b]; const rd=RANKS.indexOf(ca.r)-RANKS.indexOf(cb.r); return rd!==0?rd:SUITS.indexOf(ca.s)-SUITS.indexOf(cb.s); }); selected=[]; renderHand(); }
+function clearSelection(){ selected=[]; renderHand(); updateHint(); }
+
+// ═══════════════════════════════════════════════════════
+// DRAG TO REORDER
+// ═══════════════════════════════════════════════════════
+function setupDrag(div, visualIdx) {
+  div.draggable = true;
+
+  div.addEventListener('dragstart', e => {
+    dragSrcIdx = visualIdx;
+    div.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+  });
+
+  div.addEventListener('dragend', () => {
+    div.classList.remove('dragging');
+    document.querySelectorAll('.drag-over-left,.drag-over-right').forEach(el=>el.classList.remove('drag-over-left','drag-over-right'));
+  });
+
+  div.addEventListener('dragover', e => {
+    e.preventDefault();
+    if (dragSrcIdx === null || dragSrcIdx === visualIdx) return;
+    document.querySelectorAll('.drag-over-left,.drag-over-right').forEach(el=>el.classList.remove('drag-over-left','drag-over-right'));
+    const rect = div.getBoundingClientRect();
+    const mid = rect.left + rect.width/2;
+    if (e.clientX < mid) div.classList.add('drag-over-left');
+    else div.classList.add('drag-over-right');
+  });
+
+  div.addEventListener('drop', e => {
+    e.preventDefault();
+    if (dragSrcIdx === null || dragSrcIdx === visualIdx) return;
+    const rect = div.getBoundingClientRect();
+    const mid = rect.left + rect.width/2;
+    let insertAt = visualIdx;
+    if (e.clientX >= mid) insertAt = visualIdx + 1;
+    // reorder handOrder
+    const moved = handOrder.splice(dragSrcIdx, 1)[0];
+    if (dragSrcIdx < insertAt) insertAt--;
+    handOrder.splice(insertAt, 0, moved);
+    // update selected indices
+    selected = selected.map(si => {
+      // si = index in handOrder pre-move
+      if (si === dragSrcIdx) return insertAt;
+      if (dragSrcIdx < insertAt) {
+        if (si > dragSrcIdx && si <= insertAt) return si-1;
+      } else {
+        if (si >= insertAt && si < dragSrcIdx) return si+1;
+      }
+      return si;
+    });
+    dragSrcIdx = null;
+    renderHand();
+    updateHint();
+  });
+}
+
+// ═══════════════════════════════════════════════════════
+// TOGGLE CARD SELECT
+// ═══════════════════════════════════════════════════════
+function toggleCard(visualIdx) {
+  if (G.finished.includes(0)) return;
+  // Only allow select when it's human turn OR bomb window open
+  if (G.turn !== 0 && !(G.remActive && !G.usedRem[0] && !G.skippedBomb[0])) return;
+  const i = selected.indexOf(visualIdx);
+  if (i>=0) selected.splice(i,1); else selected.push(visualIdx);
+  playSound('select'); vibrate(10);
+  renderHand();
+  updateHint();
+}
+
+// ═══════════════════════════════════════════════════════
+// HUMAN ACTIONS
+// ═══════════════════════════════════════════════════════
+function getSelectedCards() {
+  return selected.map(vi => G.hands[0][handOrder[vi]]);
+}
+
+function humanPlay() {
+  if (G.turn!==0) return;
+  const cards = getSelectedCards();
+  if (!cards.length){ toast('Pilih kartu dulu!','err'); return; }
+
+  if (G.tableCards.length===0) {
+    if (G.firstPlay){
+      if (cards.length!==1||cards[0].r!=='3'||cards[0].s!=='♦'){
+        toast('Kartu pertama harus 3♦ single!','err'); return;
+      }
+    }
+    const combo=detectCombo(cards);
+    if (!combo.valid){ toast('Kombinasi tidak valid!','err'); return; }
+    playCards(0,cards); return;
+  }
+
+  if (G.mode==='single'){
+    if (cards.length!==1){ toast('Mode single — pilih 1 kartu!','err'); return; }
+    if (!canBeat(cards,G.tableCards,'single')){ toast('Harus suit sama & lebih besar!','err'); return; }
+    playCards(0,cards); return;
+  }
+
+  if (G.mode==='combo'){
+    const combo=detectCombo(cards);
+    if (!combo.valid){ toast('Bukan kombinasi valid!','err'); return; }
+    const tc=detectCombo(G.tableCards);
+    if (combo.type!==tc.type&&!(combo.type==='straight'&&tc.type==='straight')&&!(combo.type==='straightflush'&&tc.type==='straight')){
+      toast('Harus lawan kombinasi jenis sama!','err'); return;
+    }
+    if (!canBeat(cards,G.tableCards,tc.type)){ toast('Kombinasi kurang besar!','err'); return; }
+    playCards(0,cards); return;
+  }
+
+  if (G.mode==='free'){
+    const combo=detectCombo(cards);
+    if (!combo.valid){ toast('Kombinasi tidak valid!','err'); return; }
+    playCards(0,cards);
+  }
+}
+
+function humanPass() {
+  if (G.turn!==0) return;
+  if (G.remActive&&!G.skippedBomb[0]&&!G.usedRem[0]){ humanSkipBomb(); return; }
+  doPass(0);
+}
+
+function humanRem() {
+  if (G.turn!==0) return;
+  if (G.mode!=='single'){ toast('REM hanya di mode single!','err'); return; }
+  if (!G.tableCards.length){ toast('Meja kosong, tidak perlu REM!','err'); return; }
+  const remCards = selected.filter(vi=>G.hands[0][handOrder[vi]].r==='2');
+  if (!remCards.length){ toast('Pilih kartu 2 untuk REM!','err'); return; }
+  doRem(0, G.hands[0][handOrder[remCards[0]]]);
+}
+
+function humanBomb() {
+  if (!G.remActive){ toast('BOM hanya saat ada REM aktif!','err'); return; }
+  if (G.finished.includes(0)) return;
+  if (G.usedRem[0]){ toast('Pernah REM — tidak bisa BOM!','err'); return; }
+  if (G.skippedBomb[0]){ toast('Sudah skip BOM di ronde ini!','err'); return; }
+  const bomb=findBomb(G.hands[0]);
+  if (!bomb){ toast('Tidak punya kartu BOM!','err'); return; }
+  doBomb(0,bomb);
+}
+
+function humanSkipBomb() {
+  if (!G.remActive||G.finished.includes(0)) return;
+  G.skippedBomb[0]=true;
+  log('info','ℹ️ Kamu skip BOM.');
+  const order=getOrderFrom(G.remPlayer).filter(p=>p!==G.remPlayer&&!G.finished.includes(p));
+  const humanIdx=order.indexOf(0);
+  const remaining=order.slice(humanIdx+1);
+  let anyBombed=false;
+  for (const pid of remaining){
+    if (G.usedRem[pid]||G.skippedBomb[pid]) continue;
+    const bomb=findBomb(G.hands[pid]);
+    if (bomb&&Math.random()>0.3){ setTimeout(()=>doBomb(pid,bomb),600); anyBombed=true; break; }
+    else { G.skippedBomb[pid]=true; log('info',`ℹ️ ${PLAYER_NAMES[pid]} skip BOM.`); }
+  }
+  if (!anyBombed) winRound(G.remPlayer);
+}
+
+// ═══════════════════════════════════════════════════════
+// GAME LOGIC
+// ═══════════════════════════════════════════════════════
+function playCards(pid, cards) {
+  const combo=detectCombo(cards);
+  for (const c of cards){
+    const idx=G.hands[pid].findIndex(x=>x.r===c.r&&x.s===c.s);
+    if (idx>=0){
+      G.hands[pid].splice(idx,1);
+      // update handOrder for human
+      if (pid===0){
+        const vi=handOrder.indexOf(idx);
+        if (vi>=0) handOrder.splice(vi,1);
+        // re-map indices > idx
+        handOrder=handOrder.map(i=>i>idx?i-1:i);
+      }
+    }
+  }
+  G.tableCards=cards; G.tablePlayer=pid; G.passCount=0;
+  G.remActive=false; G.bombOpportunity=false;
+  G.mode=combo.type==='single'?'single':'combo';
+  G.comboType=combo.type==='single'?null:combo.type;
+  log('play',`${PLAYER_NAMES[pid]}: ${cardsStr(cards)} [${combo.type.toUpperCase()}]`);
+  G.firstPlay=false;
+  playSound('card'); vibrate([15,10,15]);
+  setTimeout(animateLastTableCard, 30);
+  selected=[];
+  if (!G.hands[pid].length){
+    G.finished.push(pid);
+    log('win',`🏆 ${PLAYER_NAMES[pid]} habis kartu! #${G.finished.length}`);
+    if (G.finished.length>=1){ endGame(); return; }
+  }
+  nextTurn(pid);
+}
+
+function doPass(pid){
+  log('pass',`${PLAYER_NAMES[pid]} — PASS`);
+  if(pid===0){ playSound('pass'); vibrate(8); }
+  G.passCount++;
+  const active=[0,1,2,3].filter(i=>!G.finished.includes(i));
+  const others=active.filter(i=>i!==G.tablePlayer);
+  if (G.passCount>=others.length){ winRound(G.tablePlayer); return; }
+  if (G.remActive&&G.bombOpportunity&&!G.skippedBomb[pid]&&!G.usedRem[pid]){
+    G.skippedBomb[pid]=true;
+    log('info',`ℹ️ ${PLAYER_NAMES[pid]} skip BOM.`);
+  }
+  nextTurn(pid);
+}
+
+function doRem(pid,card){
+  const idx=G.hands[pid].findIndex(x=>x.r===card.r&&x.s===card.s);
+  G.hands[pid].splice(idx,1);
+  if (pid===0){
+    const vi=handOrder.indexOf(idx);
+    if (vi>=0) handOrder.splice(vi,1);
+    handOrder=handOrder.map(i=>i>idx?i-1:i);
+    selected=[];
+  }
+  G.usedRem[pid]=true; G.remActive=true; G.remPlayer=pid;
+  G.tableCards=[card]; G.tablePlayer=pid; G.bombOpportunity=true; G.passCount=0;
+  log('rem',`💣 ${PLAYER_NAMES[pid]} REM! ${cardStr(card)}`);
+  playSound('rem'); vibrate([30,20,30,20,60]);
+  setTimeout(()=>{ animateLastTableCard(); animateRem(); }, 30);
+  log('system','⚡ Jendela BOM terbuka!');
+  if (!G.hands[pid].length){ G.finished.push(pid); log('win',`🏆 ${PLAYER_NAMES[pid]} habis kartu!`); }
+  checkBombWindow(pid);
+}
+
+function checkBombWindow(remPid){
+  const order=getOrderFrom(remPid).filter(p=>p!==remPid&&!G.finished.includes(p));
+  const humanCanBomb=order.includes(0)&&!G.usedRem[0]&&!G.skippedBomb[0]&&!G.finished.includes(0);
+
+  // Process AI players that come BEFORE human in order
+  for (const pid of order){
+    if (pid===0) break; // stop, human's turn next
+    if (G.usedRem[pid]||G.skippedBomb[pid]) continue;
+    const bomb=findBomb(G.hands[pid]);
+    if (bomb&&Math.random()>0.3){
+      // AI bombs — delay slightly so log is visible
+      setTimeout(()=>doBomb(pid,bomb),600);
+      return; // done, no bomb window for human
+    } else {
+      G.skippedBomb[pid]=true;
+      log('info',`ℹ️ ${PLAYER_NAMES[pid]} skip BOM.`);
+    }
+  }
+
+  if (humanCanBomb){
+    // Human gets bomb window — set turn to human & render so buttons activate
+    G.turn=0;
+    // Use setTimeout to ensure DOM is updated after doRem's render
+    setTimeout(()=>{ renderAll(); updateHint(); }, 50);
+    return;
+  }
+
+  // Human can't bomb — process remaining AI after human
+  let anyBombed=false;
+  for (const pid of order){
+    if (pid===0) continue;
+    if (G.usedRem[pid]||G.skippedBomb[pid]) continue;
+    const bomb=findBomb(G.hands[pid]);
+    if (bomb&&Math.random()>0.3){
+      setTimeout(()=>doBomb(pid,bomb),600);
+      anyBombed=true;
+      break;
+    } else {
+      G.skippedBomb[pid]=true;
+      log('info',`ℹ️ ${PLAYER_NAMES[pid]} skip BOM.`);
+    }
+  }
+  if (!anyBombed) setTimeout(()=>winRound(remPid), 100);
+}
+
+function doBomb(pid,bomb){
+  for (const c of bomb){
+    const idx=G.hands[pid].findIndex(x=>x.r===c.r&&x.s===c.s);
+    if (idx>=0) G.hands[pid].splice(idx,1);
+  }
+  const btype=isQuartet(bomb)?'QUARTET':'STRAIGHT FLUSH';
+  log('bomb',`💥 ${PLAYER_NAMES[pid]} BOM! ${btype}: ${cardsStr(bomb)}`);
+  playSound('bomb'); vibrate([50,30,50,30,100,30,150]);
+  setTimeout(animateBomb, 30);
+  log('win',`🏆 ${PLAYER_NAMES[pid]} MENANG GAME!`);
+  G.remActive=false; G.bombOpportunity=false;
+  G.finished=[pid]; endGame();
+}
+
+function findBomb(hand){
+  const rc={};
+  for (const c of hand) rc[c.r]=(rc[c.r]||0)+1;
+  for (const [r,cnt] of Object.entries(rc)) if (cnt===4) return hand.filter(c=>c.r===r);
+  const bySuit={};
+  for (const c of hand){ if(!bySuit[c.s]) bySuit[c.s]=[]; bySuit[c.s].push(c); }
+  for (const [,cards] of Object.entries(bySuit)){
+    const sorted=cards.filter(c=>c.r!=='2').sort((a,b)=>RANKS.indexOf(a.r)-RANKS.indexOf(b.r));
+    for (let len=5;len<=sorted.length;len++){
+      for (let start=0;start<=sorted.length-len;start++){
+        const slice=sorted.slice(start,start+len);
+        let ok=true;
+        for (let i=1;i<slice.length;i++) if(RANKS.indexOf(slice[i].r)-RANKS.indexOf(slice[i-1].r)!==1){ok=false;break;}
+        if (ok) return slice;
+      }
+    }
+  }
+  return null;
+}
+
+function winRound(pid){
+  log('win',`🏆 ${PLAYER_NAMES[pid]} menang ronde!`);
+  playSound('win'); vibrate([20,10,20]);
+  animateWinNameplate(pid);
+  G.tableCards=[]; G.tablePlayer=-1; G.passCount=0;
+  G.mode='free'; G.comboType=null; G.remActive=false; G.bombOpportunity=false;
+  G.turn=pid;
+  if (G.finished.includes(pid)){ nextActivePlayer(pid); return; }
+  log('system',`▶ ${PLAYER_NAMES[pid]} bebas main`);
+  renderAll(); updateHint();
+  if (pid!==0) setTimeout(runAI,900);
+}
+
+function nextTurn(fromPid){
+  const next=getNextActive(fromPid);
+  if (next===-1){ endGame(); return; }
+  G.turn=next; renderAll(); updateHint();
+  if (next!==0) setTimeout(runAI,700);
+}
+
+function nextActivePlayer(pid){
+  const next=getNextActive(pid);
+  if (next===-1){ endGame(); return; }
+  G.turn=next; renderAll(); updateHint();
+  if (next!==0) setTimeout(runAI,900);
+}
+
+function getNextActive(fromPid){
+  for (let i=1;i<=3;i++){
+    const p=(fromPid+i)%4;
+    if (!G.finished.includes(p)&&G.hands[p].length>0) return p;
+  }
+  return -1;
+}
+
+function getOrderFrom(pid){
+  const o=[];
+  for (let i=1;i<=3;i++) o.push((pid+i)%4);
+  return o;
+}
+
+function endGame(){
+  const remaining=[0,1,2,3].filter(p=>!G.finished.includes(p));
+  // Sort: paling banyak kartu = ranking paling akhir
+  // Tiebreaker: kartu tertinggi lebih besar = ranking lebih buruk
+  remaining.sort((a,b)=>{
+    const lenDiff=G.hands[b].length-G.hands[a].length;
+    if(lenDiff!==0) return lenDiff;
+    const maxVal=hand=>hand.length?Math.max(...hand.map(x=>cardVal(x))):0;
+    return maxVal(G.hands[b])-maxVal(G.hands[a]);
+  });
+  for(const p of remaining) G.finished.push(p);
+  G.isGameOver=true;
+  log('system','🎮 GAME SELESAI!');
+  renderAll();
+  const rl=document.getElementById('resultList');
+  rl.innerHTML='';
+  const medals=['🥇','🥈','🥉','4️⃣'];
+  for(let i=0;i<G.finished.length;i++){
+    const pid=G.finished[i];
+    const sisa=G.hands[pid].length;
+    const maxC=sisa?G.hands[pid].reduce((a,b)=>cardVal(a)>cardVal(b)?a:b):null;
+    const info=i===0?'Habis kartu!':`${sisa} kartu sisa${maxC?' · tertinggi: '+maxC.r+maxC.s:''}`;
+    const row=document.createElement('div');
+    row.className='result-row';
+    row.innerHTML=`<span class="result-medal">${medals[i]}</span>
+      <div style="display:flex;flex-direction:column">
+        <span class="result-name" style="color:${COLORS[pid]}">${PLAYER_NAMES[pid]}</span>
+        <small style="color:rgba(255,255,255,0.4);font-size:0.65rem">${info}</small>
+      </div>`;
+    rl.appendChild(row);
+  }
+  document.getElementById('gameOverlay').classList.add('show');
+}
+
+// ═══════════════════════════════════════════════════════
+// AI LOGIC
+// ═══════════════════════════════════════════════════════
+function runAI(){
+  const pid=G.turn;
+  if (pid===0||G.finished.includes(pid)) return;
+  const hand=G.hands[pid];
+  if (!hand.length){ nextTurn(pid); return; }
+  if (G.firstPlay){ const sc=hand.find(c=>c.r==='3'&&c.s==='♦'); playCards(pid,[sc||hand[0]]); return; }
+  if (G.mode==='free'){ aiFreePlay(pid); return; }
+  if (G.mode==='single'){ aiSingleTurn(pid); return; }
+  if (G.mode==='combo'){ aiComboTurn(pid); return; }
+}
+
+function aiFreePlay(pid){ playCards(pid,[G.hands[pid][0]]); }
+
+function aiSingleTurn(pid){
+  const hand=G.hands[pid], table=G.tableCards[0];
+  const twos=hand.filter(c=>c.r==='2');
+  if (twos.length&&!G.usedRem[pid]&&Math.random()>0.75){ doRem(pid,twos[0]); return; }
+  const cands=hand.filter(c=>c.s===table.s&&cardVal(c)>cardVal(table));
+  if (!cands.length){ doPass(pid); return; }
+  playCards(pid,[cands[0]]);
+}
+
+function aiComboTurn(pid){
+  const tc=detectCombo(G.tableCards), hand=G.hands[pid];
+  const combos=findAllCombos(hand,tc.type,G.tableCards.length);
+  const beatable=combos.filter(c=>canBeat(c,G.tableCards,tc.type));
+  if (!beatable.length){ doPass(pid); return; }
+  playCards(pid,beatable[0]);
+}
+
+function findAllCombos(hand,type,len){
+  const results=[];
+  function combine(start,curr){
+    if (curr.length===len){
+      const cards=curr.map(i=>hand[i]);
+      const d=detectCombo(cards);
+      if (d.valid&&(d.type===type||(type==='straight'&&d.type==='straightflush'))) results.push(cards);
+      return;
+    }
+    for (let i=start;i<hand.length;i++) combine(i+1,[...curr,i]);
+  }
+  combine(0,[]);
+  return results;
+}
+
+// ═══════════════════════════════════════════════════════
+// RENDER
+// ═══════════════════════════════════════════════════════
+function renderAll(){
+  renderHand();
+  renderTable();
+  renderBotCards();
+  renderNameplates();
+  renderStatus();
+  renderButtons();
+}
+
+function makeCardEl(c, extraClass=''){
+  const d=document.createElement('div');
+  d.className=`card ${isRed(c)?'red':'black'} ${extraClass}`;
+  d.innerHTML=`<div class="c-rank">${c.r}</div><div class="c-suit">${c.s}</div>`;
+  return d;
+}
+
+function renderHand(){
+  const wrap=document.getElementById('handCardsWrap');
+  wrap.innerHTML='';
+  if (G.finished.includes(0)){
+    wrap.innerHTML='<span style="color:#2ecc71;font-size:0.75rem;padding:20px">✅ Kartu habis! Kamu menang!</span>';
+    return;
+  }
+  // Deteksi bomb cards (quartet / straight flush)
+  const bombCards=findBomb(G.hands[0])||[];
+  const bombKeys=new Set(bombCards.map(x=>x.r+x.s));
+
+  // Pisah: bomb di kiri, sisanya tetap urut
+  const entries=handOrder.map((oi,vi)=>({oi,vi}));
+  const bombEntries=entries.filter(({oi})=>bombKeys.has(G.hands[0][oi].r+G.hands[0][oi].s));
+  const otherEntries=entries.filter(({oi})=>!bombKeys.has(G.hands[0][oi].r+G.hands[0][oi].s));
+  const displayOrder=[...bombEntries,...otherEntries];
+
+  let badgeDone=false;
+  displayOrder.forEach(({oi,vi})=>{
+    const card=G.hands[0][oi];
+    const isBomb=bombKeys.has(card.r+card.s);
+    const d=makeCardEl(card, selected.includes(vi)?'selected':'');
+    d.style.position='relative';
+    // Badge hanya di kartu pertama grup bomb
+    if(isBomb && !badgeDone){
+      const badge=document.createElement('div');
+      badge.className='bomb-badge';
+      badge.textContent=bombCards.length===4?'QUARTET':'S.FLUSH';
+      d.appendChild(badge);
+      badgeDone=true;
+    }
+    d.addEventListener('click',()=>toggleCard(vi));
+    setupDrag(d,vi);
+    wrap.appendChild(d);
+  });
+  // update selected info
+  const sel=getSelectedCards();
+  const info=document.getElementById('selInfo');
+  if (sel.length>0){
+    const combo=detectCombo(sel);
+    info.textContent=combo.valid?`${sel.length} kartu · ${combo.type.toUpperCase()}`:`${sel.length} kartu`;
+    info.style.color=combo.valid?'#c9a84c':'rgba(255,255,255,0.4)';
+  } else { info.textContent=''; }
+}
+
+function renderTable(){
+  const wrap=document.getElementById('tableCardsWrap');
+  wrap.innerHTML='';
+  if (!G.tableCards||!G.tableCards.length){
+    const s=document.createElement('span'); s.className='table-empty-text'; s.textContent='Meja Kosong';
+    wrap.appendChild(s); return;
+  }
+  for (const c of G.tableCards) wrap.appendChild(makeCardEl(c));
+}
+
+function animateLastTableCard(){
+  // Hanya animasikan kartu terakhir yang baru masuk ke meja
+  const cards = document.querySelectorAll('#tableCardsWrap .card');
+  if(!cards.length) return;
+  const last = cards[cards.length-1];
+  last.classList.remove('card-flyin-anim');
+  void last.offsetWidth;
+  last.classList.add('card-flyin-anim');
+}
+
+function renderBotCards(){
+  [1,2,3].forEach(pid=>{
+    const wrap=document.getElementById(`bcards${pid}`);
+    wrap.innerHTML='';
+    const n=Math.min(G.hands[pid].length,8);
+    for (let i=0;i<n;i++){
+      const d=document.createElement('div');
+      d.className='card-back';
+      wrap.appendChild(d);
+    }
+  });
+}
+
+function renderNameplates(){
+  [0,1,2,3].forEach(pid=>{
+    const np=document.getElementById(`np${pid}`);
+    if (!np) return;
+    const isActive=G.turn===pid;
+    const isDone=G.finished.includes(pid);
+    np.className='nameplate'+(isActive?' active':'')+(isDone?' finished':'');
+    const av=document.getElementById(`av${pid}`);
+    if (av){ av.style.background=COLORS[pid]+'30'; av.style.color=COLORS[pid]; }
+    const nc=document.getElementById(`npcards${pid}`);
+    if (nc){
+      nc.textContent=isDone?'Selesai ✓':`${G.hands[pid].length} kartu`;
+    }
+  });
+}
+
+function renderStatus(){
+  const strip=document.getElementById('statusStrip');
+  strip.innerHTML='';
+  // Mode chip
+  const mc=document.createElement('div');
+  mc.className='mode-chip';
+  if (G.remActive){ mc.className+=' chip-rem'; mc.textContent='⚡ REM AKTIF'; }
+  else if (G.mode==='single'){ mc.className+=' chip-single'; mc.textContent='SINGLE'; }
+  else if (G.mode==='combo'){ mc.className+=' chip-combo'; mc.textContent=G.comboType?G.comboType.toUpperCase():'COMBO'; }
+  else { mc.className+=' chip-free'; mc.textContent='BEBAS'; }
+  strip.appendChild(mc);
+  // Pass counter
+  if (G.passCount>0){
+    const pc=document.createElement('div');
+    pc.className='pass-chip';
+    pc.textContent=`${G.passCount} pass`;
+    strip.appendChild(pc);
+  }
+}
+
+function renderButtons(){
+  const isMyTurn=G.turn===0&&!G.finished.includes(0);
+  const gameOver=G.isGameOver;
+  // Disable/enable hand area
+  const bombWindow=G.remActive&&!G.usedRem[0]&&!G.skippedBomb[0]&&!G.finished.includes(0)&&!gameOver;
+  const handEl=document.getElementById('handArea');
+  if(handEl) handEl.classList.toggle('disabled', !isMyTurn && !bombWindow);
+  const canBomb=G.remActive&&!G.usedRem[0]&&!G.skippedBomb[0]&&!G.finished.includes(0)&&!gameOver;
+  document.getElementById('btnPlay').disabled=!isMyTurn||gameOver;
+  document.getElementById('btnPass').disabled=(!isMyTurn&&!canBomb)||gameOver;
+  document.getElementById('btnRem').disabled=!isMyTurn||gameOver||G.mode!=='single'||!G.tableCards.length||G.remActive;
+  document.getElementById('btnBomb').disabled=!canBomb;
+  const sb=document.getElementById('btnSkipBomb');
+  sb.style.display=canBomb?'inline-block':'none';
+}
+
+function updateHint(){
+  const el=document.getElementById('hintBar');
+  if (G.remActive&&!G.usedRem[0]&&!G.skippedBomb[0]&&!G.finished.includes(0)){
+    el.innerHTML=`<span class="danger">⚡ REM aktif!</span> Tekan <span class="hl">💥 BOM</span> untuk counter, atau <span class="hl">❌ Skip</span> untuk lanjut`;
+    return;
+  }
+  if (G.finished.includes(0)){ el.innerHTML=''; return; }
+  if (G.turn!==0){ el.innerHTML=`<span>Menunggu ${PLAYER_NAMES[G.turn]}...</span>`; return; }
+  if (G.mode==='single'&&G.tableCards.length)
+    el.innerHTML=`Pilih <span class="hl">kartu suit sama & lebih besar</span>, atau <span class="hl">kartu 2</span> untuk REM`;
+  else if (G.mode==='combo')
+    el.innerHTML=`Lawan dengan <span class="hl">${G.comboType?.toUpperCase()}</span> yang lebih besar`;
+  else
+    el.innerHTML=`Bebas! Pilih <span class="hl">1 kartu</span> atau <span class="hl">kombinasi</span>`;
+}
+
+// ═══════════════════════════════════════════════════════
+// LOG
+// ═══════════════════════════════════════════════════════
+function log(type,msg){
+  const el=document.getElementById('logScroll');
+  const d=document.createElement('div');
+  d.className=`log-line ${type}`;
+  d.textContent=msg;
+  el.appendChild(d);
+  el.scrollTop=el.scrollHeight;
+}
+function clearLog(){ document.getElementById('logScroll').innerHTML=''; }
+function toggleLog(){
+  const p=document.getElementById('logPanel');
+  p.classList.toggle('open');
+}
+
+// ═══════════════════════════════════════════════════════
+// TOAST
+// ═══════════════════════════════════════════════════════
+let toastTimer=null;
+function toast(msg,type=''){
+  const el=document.getElementById('toast');
+  el.textContent=msg;
+  el.className='show'+(type==='err'?' toast-err':'');
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>{ el.className=''; },2200);
+}
+
+
+// ═══════════════════════════════════════════════════════
+// RULES PANEL
+// ═══════════════════════════════════════════════════════
+function toggleRules(){
+  document.getElementById('rulesOverlay').classList.toggle('open');
+}
+
+// ═══════════════════════════════════════════════════════
+// ANIMATION HELPERS
+// ═══════════════════════════════════════════════════════
+function animateTableCards(){
+  const cards = document.querySelectorAll('#tableCardsWrap .card');
+  cards.forEach((el,i)=>{
+    el.style.animationDelay = (i*0.06)+'s';
+    el.classList.remove('card-flyin-anim');
+    void el.offsetWidth; // reflow
+    el.classList.add('card-flyin-anim');
+  });
+}
+
+function animateRem(){
+  const wrap = document.getElementById('tableCardsWrap');
+  wrap.classList.remove('table-rem-anim');
+  void wrap.offsetWidth;
+  wrap.classList.add('table-rem-anim');
+  setTimeout(()=> wrap.classList.remove('table-rem-anim'), 600);
+}
+
+function animateBomb(){
+  const table = document.getElementById('gameTable');
+  table.classList.remove('table-bomb-anim');
+  void table.offsetWidth;
+  table.classList.add('table-bomb-anim');
+  setTimeout(()=> table.classList.remove('table-bomb-anim'), 900);
+}
+
+function animateWinNameplate(pid){
+  const np = document.getElementById('np'+pid);
+  if(!np) return;
+  np.classList.remove('np-win-anim');
+  void np.offsetWidth;
+  np.classList.add('np-win-anim');
+  setTimeout(()=> np.classList.remove('np-win-anim'), 1600);
+}
+
+function animateDealHand(){
+  setTimeout(()=>{
+    const cards = document.querySelectorAll('#handCardsWrap .card');
+    cards.forEach((el,i)=>{
+      el.style.animationDelay = (i*0.04)+'s';
+      el.classList.add('card-deal-anim');
+    });
+  }, 50);
+}
+
+
+// ═══════════════════════════════════════════════════════
+// SOUND & VIBRATION
+// ═══════════════════════════════════════════════════════
+const AudioCtx = window.AudioContext || window.webkitAudioContext;
+let _actx = null;
+
+function getAudioCtx(){
+  if(!_actx) _actx = new AudioCtx();
+  if(_actx.state === 'suspended') _actx.resume();
+  return _actx;
+}
+
+function playSound(type){
+  try {
+    const ctx = getAudioCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    if(type === 'card'){
+      // Suara kartu jatuh — klik pendek
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(800, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(300, ctx.currentTime + 0.08);
+      gain.gain.setValueAtTime(0.18, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.1);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.1);
+    }
+    else if(type === 'select'){
+      // Suara pilih kartu — tick ringan
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(1100, ctx.currentTime);
+      gain.gain.setValueAtTime(0.08, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.06);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.06);
+    }
+    else if(type === 'rem'){
+      // Suara REM — dua nada turun dramatis
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(600, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(150, ctx.currentTime + 0.25);
+      gain.gain.setValueAtTime(0.25, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.3);
+      // Nada kedua
+      setTimeout(()=>{
+        try{
+          const ctx2=getAudioCtx(), o2=ctx2.createOscillator(), g2=ctx2.createGain();
+          o2.connect(g2); g2.connect(ctx2.destination);
+          o2.type='sawtooth';
+          o2.frequency.setValueAtTime(400,ctx2.currentTime);
+          o2.frequency.exponentialRampToValueAtTime(100,ctx2.currentTime+0.2);
+          g2.gain.setValueAtTime(0.2,ctx2.currentTime);
+          g2.gain.exponentialRampToValueAtTime(0.001,ctx2.currentTime+0.25);
+          o2.start(ctx2.currentTime); o2.stop(ctx2.currentTime+0.25);
+        }catch(e){}
+      }, 180);
+    }
+    else if(type === 'bomb'){
+      // Suara BOM — ledakan rumble
+      const bufSize = ctx.sampleRate * 0.5;
+      const buf = ctx.createBuffer(1, bufSize, ctx.sampleRate);
+      const data = buf.getChannelData(0);
+      for(let i=0;i<bufSize;i++) data[i]=(Math.random()*2-1)*Math.pow(1-(i/bufSize),1.5);
+      const src = ctx.createBufferSource();
+      src.buffer = buf;
+      const gn = ctx.createGain();
+      gn.gain.setValueAtTime(0.6, ctx.currentTime);
+      gn.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime+0.5);
+      src.connect(gn); gn.connect(ctx.destination);
+      src.start(); src.stop(ctx.currentTime+0.5);
+    }
+    else if(type === 'win'){
+      // Suara menang ronde — ding naik
+      const notes=[523,659,784,1047];
+      notes.forEach((freq,i)=>{
+        setTimeout(()=>{
+          try{
+            const cx=getAudioCtx(), o=cx.createOscillator(), g=cx.createGain();
+            o.connect(g); g.connect(cx.destination);
+            o.type='sine'; o.frequency.value=freq;
+            g.gain.setValueAtTime(0.15,cx.currentTime);
+            g.gain.exponentialRampToValueAtTime(0.001,cx.currentTime+0.2);
+            o.start(cx.currentTime); o.stop(cx.currentTime+0.2);
+          }catch(e){}
+        }, i*80);
+      });
+    }
+    else if(type === 'pass'){
+      // Suara pass — nada pendek turun
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(400, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(250, ctx.currentTime + 0.12);
+      gain.gain.setValueAtTime(0.08, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.12);
+    }
+  } catch(e){ /* audio tidak tersedia */ }
+}
+
+function vibrate(pattern){
+  try{
+    if(navigator.vibrate) navigator.vibrate(pattern);
+  }catch(e){}
+}
+
+// ═══════════════════════════════════════════════════════
+// START
+// ═══════════════════════════════════════════════════════
+newGame();
+</script>
 </body>
 </html>
