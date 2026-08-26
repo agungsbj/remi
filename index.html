@@ -207,21 +207,39 @@ body {
 }
 
 #tableCardsWrap {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px;
-  justify-content: center;
-  align-items: center;
-  min-height: 60px;
+  position: relative;
+  width: 100%;
+  min-height: 110px;
   padding: 8px;
 }
 
 .table-empty-text {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
   color: rgba(201,168,76,0.35);
   font-size: 0.7rem;
   letter-spacing: 2px;
   text-transform: uppercase;
   font-family: 'Playfair Display', serif;
+  white-space: nowrap;
+}
+
+/* Kartu dibuang — tumpukan berantakan ala meja remi asli */
+.table-card-slot {
+  position: absolute;
+  top: 50%; left: 50%;
+  transition: transform 0.15s ease;
+}
+.table-card-slot .card { cursor: default; }
+.table-card-slot .card.discard-old {
+  filter: grayscale(1) contrast(0.9) brightness(0.8);
+  box-shadow: 1px 3px 7px rgba(0,0,0,0.55);
+  opacity: 0.9;
+}
+.table-card-slot .card.discard-top {
+  filter: none;
+  box-shadow: 0 8px 22px rgba(0,0,0,0.55), 0 0 0 1px rgba(201,168,76,0.4);
 }
 
 /* ── STATUS STRIP ── */
@@ -1935,6 +1953,14 @@ function renderHand(){
   } else { info.textContent=''; }
 }
 
+// Seed deterministik per kartu (biar posisi acaknya konsisten, ga jitter tiap render)
+function seedForTableCard(c, i){
+  const str = c.r + c.s + i;
+  let h = 0;
+  for (let k=0; k<str.length; k++) h = (h*31 + str.charCodeAt(k)) >>> 0;
+  return h;
+}
+
 function renderTable(){
   const wrap=document.getElementById('tableCardsWrap');
   wrap.innerHTML='';
@@ -1942,17 +1968,40 @@ function renderTable(){
     const s=document.createElement('span'); s.className='table-empty-text'; s.textContent='Meja Kosong';
     wrap.appendChild(s); return;
   }
-  for (const c of G.tableCards) wrap.appendChild(makeCardEl(c));
+  const n = G.tableCards.length;
+  G.tableCards.forEach((c,i)=>{
+    const isTop = i===n-1;
+    const seed = seedForTableCard(c,i);
+    let rot, dx, dy;
+    if (isTop){
+      // Kartu teratas/terakhir — hampir lurus, jadi fokus mata
+      rot = (seed%10)-5;
+      dx = ((seed>>3)%12)-6;
+      dy = ((seed>>5)%12)-6;
+    } else {
+      // Kartu lama — berserakan kayak dibuang asal di meja
+      rot = (seed%46)-23;
+      dx = ((seed>>3)%56)-28;
+      dy = ((seed>>5)%40)-20;
+    }
+    const slot=document.createElement('div');
+    slot.className='table-card-slot';
+    slot.style.transform=`translate(-50%,-50%) translate(${dx}px,${dy}px) rotate(${rot}deg)`;
+    slot.style.zIndex = isTop ? (n+10) : (i+1);
+    slot.appendChild(makeCardEl(c, isTop?'discard-top':'discard-old'));
+    wrap.appendChild(slot);
+  });
 }
 
 function animateLastTableCard(){
-  // Hanya animasikan kartu terakhir yang baru masuk ke meja
-  const cards = document.querySelectorAll('#tableCardsWrap .card');
-  if(!cards.length) return;
-  const last = cards[cards.length-1];
-  last.classList.remove('card-flyin-anim');
-  void last.offsetWidth;
-  last.classList.add('card-flyin-anim');
+  // Hanya animasikan kartu terakhir yang baru masuk ke meja (kartu fokus di atas tumpukan)
+  const slots = document.querySelectorAll('#tableCardsWrap .table-card-slot');
+  if(!slots.length) return;
+  const lastCard = slots[slots.length-1].querySelector('.card');
+  if(!lastCard) return;
+  lastCard.classList.remove('card-flyin-anim');
+  void lastCard.offsetWidth;
+  lastCard.classList.add('card-flyin-anim');
 }
 
 function renderBotCards(){
@@ -2012,10 +2061,26 @@ function renderButtons(){
   const handEl=document.getElementById('handArea');
   if(handEl) handEl.classList.toggle('disabled', !isMyTurn && !bombWindow);
   const canBomb=G.remActive&&!G.usedRem[0]&&!G.skippedBomb[0]&&!G.finished.includes(0)&&!gameOver;
+
+  // Main & Pass — selalu tampil, biar user gak bingung kehilangan tombol utama
   document.getElementById('btnPlay').disabled=!isMyTurn||gameOver;
   document.getElementById('btnPass').disabled=(!isMyTurn&&!canBomb)||gameOver;
-  document.getElementById('btnRem').disabled=!isMyTurn||gameOver||G.mode!=='single'||!G.tableCards.length||G.remActive;
-  document.getElementById('btnBomb').disabled=!canBomb;
+
+  // REM — cuma tampil kalau beneran ada kartu 2 di tangan & situasinya memungkinkan REM
+  const hasRemCard = G.hands[0].some(c=>c.r==='2');
+  const remApplicable = G.mode==='single' && G.tableCards.length>0 && !G.remActive && !G.usedRem[0] && !G.finished.includes(0) && !gameOver;
+  const btnRem=document.getElementById('btnRem');
+  const showRem = hasRemCard && remApplicable;
+  btnRem.style.display = showRem ? 'inline-block' : 'none';
+  btnRem.disabled = !showRem || !isMyTurn;
+
+  // BOM — cuma tampil kalau jendela BOM lagi terbuka & beneran punya kombinasi bom
+  const bombCards = findBomb(G.hands[0]);
+  const btnBomb=document.getElementById('btnBomb');
+  const showBomb = canBomb && !!bombCards;
+  btnBomb.style.display = showBomb ? 'inline-block' : 'none';
+  btnBomb.disabled = !showBomb;
+
   const sb=document.getElementById('btnSkipBomb');
   sb.style.display=canBomb?'inline-block':'none';
 }
@@ -2077,7 +2142,7 @@ function toggleRules(){
 // ANIMATION HELPERS
 // ═══════════════════════════════════════════════════════
 function animateTableCards(){
-  const cards = document.querySelectorAll('#tableCardsWrap .card');
+  const cards = document.querySelectorAll('#tableCardsWrap .table-card-slot .card');
   cards.forEach((el,i)=>{
     el.style.animationDelay = (i*0.06)+'s';
     el.classList.remove('card-flyin-anim');
