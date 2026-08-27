@@ -31,6 +31,7 @@ body {
   background: #0f1f15;
   font-family: 'DM Sans', sans-serif;
   height: 100vh;
+  height: 100dvh;
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -44,11 +45,26 @@ body {
   position: relative;
   width: min(98vw, 900px);
   height: min(96vh, 660px);
+  height: min(96dvh, 660px);
   background: radial-gradient(ellipse at center, var(--felt-light) 0%, var(--felt) 50%, var(--felt-dark) 100%);
   border-radius: 16px;
   border: 6px solid #0a1a10;
   box-shadow: 0 0 0 3px var(--gold), 0 0 60px rgba(0,0,0,0.8), inset 0 0 80px rgba(0,0,0,0.3);
   overflow: hidden;
+}
+
+/* ── MOBILE: pakai layar penuh biar ga ada sisa ruang kosong ── */
+@media (max-width: 700px) {
+  body { padding: 0; }
+  #gameTable {
+    width: 100vw;
+    width: 100dvw;
+    height: 100vh;
+    height: 100dvh;
+    border-radius: 0;
+    border-width: 4px;
+    box-shadow: inset 0 0 80px rgba(0,0,0,0.3);
+  }
 }
 
 /* felt texture */
@@ -187,8 +203,8 @@ body {
   position: absolute;
   top: 50%; left: 50%;
   transform: translate(-50%, -50%);
-  width: 280px;
-  min-height: 140px;
+  width: 320px;
+  min-height: 170px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -198,7 +214,7 @@ body {
 
 .table-ring {
   position: absolute;
-  width: 260px; height: 130px;
+  width: 300px; height: 160px;
   border-radius: 50%;
   border: 1px solid rgba(201,168,76,0.2);
   top: 50%; left: 50%;
@@ -209,7 +225,7 @@ body {
 #tableCardsWrap {
   position: relative;
   width: 100%;
-  min-height: 110px;
+  min-height: 140px;
   padding: 8px;
 }
 
@@ -225,19 +241,22 @@ body {
   white-space: nowrap;
 }
 
-/* Kartu dibuang — tumpukan berantakan ala meja remi asli */
-.table-card-slot {
+/* Kartu dibuang — tiap giliran jadi 1 kelompok kartu yang rapi & jelas urutannya,
+   giliran-giliran sebelumnya (dalam ronde yg sama) ditumpuk agak menyebar di belakang,
+   giliran terakhir selalu tegas & jelas di paling atas */
+.table-stack {
   position: absolute;
   top: 50%; left: 50%;
+  display: flex;
+  align-items: center;
   transition: transform 0.15s ease;
 }
-.table-card-slot .card { cursor: default; }
-.table-card-slot .card.discard-old {
-  filter: grayscale(1) contrast(0.9) brightness(0.8);
-  box-shadow: 1px 3px 7px rgba(0,0,0,0.55);
-  opacity: 0.9;
+.table-stack .card { cursor: default; }
+.table-stack.stack-old .card {
+  filter: grayscale(0.7) contrast(0.92) brightness(0.82);
+  box-shadow: 1px 3px 7px rgba(0,0,0,0.5);
 }
-.table-card-slot .card.discard-top {
+.table-stack.stack-top .card {
   filter: none;
   box-shadow: 0 8px 22px rgba(0,0,0,0.55), 0 0 0 1px rgba(201,168,76,0.4);
 }
@@ -401,7 +420,7 @@ body {
 /* ── ACTIONS BAR ── */
 #actionsBar {
   display: flex;
-  gap: 5px;
+  gap: 12px;
   align-items: center;
   flex-wrap: wrap;
   justify-content: center;
@@ -423,14 +442,29 @@ body {
 .btn:not(:disabled):hover { transform: translateY(-1px); }
 .btn:not(:disabled):active { transform: translateY(0); }
 
-.btn-play { background: var(--gold); color: #1a1a1a; }
+/* ── Ikon aksi utama (Main/Pass/REM/BOM) — bulat besar, tanpa teks ── */
+.btn-icon {
+  width: 54px; height: 54px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  line-height: 1;
+  flex-shrink: 0;
+  padding: 0;
+}
+.btn-icon:not(:disabled):hover { transform: translateY(-2px) scale(1.05); }
+.btn-icon:not(:disabled):active { transform: translateY(0) scale(0.97); }
+
+.btn-play { background: var(--gold); color: #1a1a1a; box-shadow: 0 4px 14px rgba(201,168,76,0.4); }
 .btn-play:not(:disabled):hover { background: var(--gold-light); }
 .btn-pass { background: rgba(255,255,255,0.12); color: rgba(255,255,255,0.8); border: 1px solid rgba(255,255,255,0.15); }
-.btn-rem { background: #c0392b; color: #fff; }
+.btn-rem { background: #c0392b; color: #fff; box-shadow: 0 4px 14px rgba(192,57,43,0.4); }
 .btn-rem:not(:disabled):hover { background: #e74c3c; }
-.btn-bomb { background: #e67e22; color: #fff; box-shadow: 0 0 10px rgba(230,126,34,0.4); }
+.btn-bomb { background: #e67e22; color: #fff; box-shadow: 0 4px 14px rgba(230,126,34,0.5); }
 .btn-bomb:not(:disabled):hover { background: #f39c12; }
-.btn-skip { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.5); border: 1px solid rgba(255,255,255,0.1); font-size: 0.62rem; }
+.btn-skip.btn-icon { width: 44px; height: 44px; font-size: 1.1rem; background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.6); border: 1px solid rgba(255,255,255,0.1); }
 .btn-new { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.6); border: 1px solid rgba(255,255,255,0.1); font-size: 0.62rem; }
 
 .selected-info {
@@ -1108,11 +1142,11 @@ body {
 
     <!-- Actions -->
     <div id="actionsBar">
-      <button class="btn btn-play" id="btnPlay" onclick="humanPlay()">▶ Main</button>
-      <button class="btn btn-pass" id="btnPass" onclick="humanPass()">⏭ Pass</button>
-      <button class="btn btn-rem" id="btnRem" onclick="humanRem()">💣 REM</button>
-      <button class="btn btn-bomb" id="btnBomb" onclick="humanBomb()">💥 BOM</button>
-      <button class="btn btn-skip" id="btnSkipBomb" onclick="humanSkipBomb()" style="display:none">❌ Skip Bom</button>
+      <button class="btn btn-icon btn-play" id="btnPlay" onclick="humanPlay()" title="Main" aria-label="Main">▶</button>
+      <button class="btn btn-icon btn-pass" id="btnPass" onclick="humanPass()" title="Pass" aria-label="Pass">⏭</button>
+      <button class="btn btn-icon btn-rem" id="btnRem" onclick="humanRem()" title="REM" aria-label="REM">💣</button>
+      <button class="btn btn-icon btn-bomb" id="btnBomb" onclick="humanBomb()" title="BOM" aria-label="BOM">💥</button>
+      <button class="btn btn-icon btn-skip" id="btnSkipBomb" onclick="humanSkipBomb()" title="Skip Bom" aria-label="Skip Bom" style="display:none">❌</button>
       <span class="selected-info" id="selInfo"></span>
     </div>
     <div id="hintBar"></div>
@@ -1165,6 +1199,7 @@ function newGame() {
     mode: 'free',
     comboType: null,
     tableCards: [],
+    roundStacks: [],
     tablePlayer: -1,
     passCount: 0,
     remActive: false,
@@ -1470,6 +1505,7 @@ function playCards(pid, cards) {
   G.remActive=false; G.bombOpportunity=false;
   G.mode=combo.type==='single'?'single':'combo';
   G.comboType=combo.type==='single'?null:combo.type;
+  G.roundStacks.push({pid, cards:[...cards], type:combo.type});
   log('play',`${PLAYER_NAMES[pid]}: ${cardsStr(cards)} [${combo.type.toUpperCase()}]`);
   G.firstPlay=false;
   playSound('card'); vibrate([15,10,15]);
@@ -1508,6 +1544,7 @@ function doRem(pid,card){
   }
   G.usedRem[pid]=true; G.remActive=true; G.remPlayer=pid;
   G.tableCards=[card]; G.tablePlayer=pid; G.bombOpportunity=true; G.passCount=0;
+  G.roundStacks.push({pid, cards:[card], type:'rem'});
   log('rem',`💣 ${PLAYER_NAMES[pid]} REM! ${cardStr(card)}`);
   playSound('rem'); vibrate([30,20,30,20,60]);
   setTimeout(()=>{ animateLastTableCard(); animateRem(); }, 30);
@@ -1570,6 +1607,7 @@ function doBomb(pid,bomb){
   }
   const btype=isQuartet(bomb)?'QUARTET':'STRAIGHT FLUSH';
   log('bomb',`💥 ${PLAYER_NAMES[pid]} BOM! ${btype}: ${cardsStr(bomb)}`);
+  G.roundStacks.push({pid, cards:[...bomb], type:'bomb'});
   playSound('bomb'); vibrate([50,30,50,30,100,30,150]);
   setTimeout(animateBomb, 30);
   log('win',`🏆 ${PLAYER_NAMES[pid]} MENANG GAME!`);
@@ -1603,6 +1641,7 @@ function winRound(pid){
   playSound('win'); vibrate([20,10,20]);
   animateWinNameplate(pid);
   G.tableCards=[]; G.tablePlayer=-1; G.passCount=0;
+  G.roundStacks=[];
   G.mode='free'; G.comboType=null; G.remActive=false; G.bombOpportunity=false;
   G.turn=pid;
   if (G.finished.includes(pid)){ nextActivePlayer(pid); return; }
@@ -1961,47 +2000,72 @@ function seedForTableCard(c, i){
   return h;
 }
 
+// Urutkan kartu untuk ditampilkan (angka kecil→besar) — biar straight/kombinasi
+// selalu kebaca jelas urutannya, baik punya kita maupun punya lawan.
+function sortCardsForDisplay(cards){
+  return [...cards].sort((a,b)=>{
+    const rd = RANKS.indexOf(a.r)-RANKS.indexOf(b.r);
+    return rd!==0 ? rd : SUITS.indexOf(a.s)-SUITS.indexOf(b.s);
+  });
+}
+
 function renderTable(){
   const wrap=document.getElementById('tableCardsWrap');
   wrap.innerHTML='';
-  if (!G.tableCards||!G.tableCards.length){
+  const stacks = G.roundStacks||[];
+  if (!stacks.length){
     const s=document.createElement('span'); s.className='table-empty-text'; s.textContent='Meja Kosong';
     wrap.appendChild(s); return;
   }
-  const n = G.tableCards.length;
-  G.tableCards.forEach((c,i)=>{
-    const isTop = i===n-1;
-    const seed = seedForTableCard(c,i);
+  // Tampilkan maksimal beberapa giliran terakhir dlm ronde ini, biar meja ga penuh sesak
+  const maxShow = 5;
+  const shown = stacks.slice(Math.max(0, stacks.length-maxShow));
+  const lastIdx = shown.length-1;
+
+  shown.forEach((entry,idx)=>{
+    const isTop = idx===lastIdx;
+    const back = lastIdx-idx; // 0 = giliran terakhir, makin besar makin lama
+    const seed = seedForTableCard(entry.cards[0], entry.pid*100+idx);
     let rot, dx, dy;
     if (isTop){
-      // Kartu teratas/terakhir — hampir lurus, jadi fokus mata
-      rot = (seed%10)-5;
-      dx = ((seed>>3)%12)-6;
-      dy = ((seed>>5)%12)-6;
+      // Giliran terakhir — hampir lurus & fokus di tengah, kartu selalu berurutan rapi
+      rot = ((seed%10)-5)*0.6;
+      dx = ((seed>>3)%10)-5;
+      dy = ((seed>>5)%10)-5;
     } else {
-      // Kartu lama — berserakan kayak dibuang asal di meja
-      rot = (seed%46)-23;
-      dx = ((seed>>3)%56)-28;
-      dy = ((seed>>5)%40)-20;
+      // Giliran-giliran sebelumnya di ronde yg sama — digeser diagonal ke belakang,
+      // tetap 1 kelompok rapi (bukan diacak per-kartu) biar tetap kebaca jelas
+      rot = (((seed%14)-7)) + (idx%2===0 ? -3 : 3);
+      dx = (((seed>>3)%10)-5) - back*7;
+      dy = (((seed>>5)%8)-4) - back*6;
     }
-    const slot=document.createElement('div');
-    slot.className='table-card-slot';
-    slot.style.transform=`translate(-50%,-50%) translate(${dx}px,${dy}px) rotate(${rot}deg)`;
-    slot.style.zIndex = isTop ? (n+10) : (i+1);
-    slot.appendChild(makeCardEl(c, isTop?'discard-top':'discard-old'));
-    wrap.appendChild(slot);
+    const overlap = entry.cards.length>=5 ? -28 : entry.cards.length>=4 ? -24 : -20;
+    const group=document.createElement('div');
+    group.className='table-stack'+(isTop?' stack-top':' stack-old');
+    group.style.transform=`translate(-50%,-50%) translate(${dx}px,${dy}px) rotate(${rot}deg)`;
+    group.style.zIndex = idx+1;
+    const sorted = sortCardsForDisplay(entry.cards);
+    sorted.forEach((c,ci)=>{
+      const el=makeCardEl(c, isTop?'discard-top':'discard-old');
+      if (ci>0) el.style.marginLeft = overlap+'px';
+      group.appendChild(el);
+    });
+    wrap.appendChild(group);
   });
 }
 
 function animateLastTableCard(){
-  // Hanya animasikan kartu terakhir yang baru masuk ke meja (kartu fokus di atas tumpukan)
-  const slots = document.querySelectorAll('#tableCardsWrap .table-card-slot');
-  if(!slots.length) return;
-  const lastCard = slots[slots.length-1].querySelector('.card');
-  if(!lastCard) return;
-  lastCard.classList.remove('card-flyin-anim');
-  void lastCard.offsetWidth;
-  lastCard.classList.add('card-flyin-anim');
+  // Hanya animasikan kelompok kartu terakhir yang baru masuk ke meja
+  const stacks = document.querySelectorAll('#tableCardsWrap .table-stack');
+  if(!stacks.length) return;
+  const lastStack = stacks[stacks.length-1];
+  const cards = lastStack.querySelectorAll('.card');
+  cards.forEach((el,i)=>{
+    el.style.animationDelay = (i*0.05)+'s';
+    el.classList.remove('card-flyin-anim');
+    void el.offsetWidth;
+    el.classList.add('card-flyin-anim');
+  });
 }
 
 function renderBotCards(){
@@ -2142,7 +2206,7 @@ function toggleRules(){
 // ANIMATION HELPERS
 // ═══════════════════════════════════════════════════════
 function animateTableCards(){
-  const cards = document.querySelectorAll('#tableCardsWrap .table-card-slot .card');
+  const cards = document.querySelectorAll('#tableCardsWrap .table-stack .card');
   cards.forEach((el,i)=>{
     el.style.animationDelay = (i*0.06)+'s';
     el.classList.remove('card-flyin-anim');
