@@ -3,7 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Remi</title>
+<title>Remi Online & Offline</title>
+<!-- Supabase JS Client -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@400;500;600&display=swap');
 
@@ -53,418 +55,158 @@ body {
   overflow: hidden;
 }
 
-/* ── MOBILE: pakai layar penuh biar ga ada sisa ruang kosong ── */
 @media (max-width: 700px) {
   body { padding: 0; }
   #gameTable {
-    width: 100vw;
-    width: 100dvw;
-    height: 100vh;
-    height: 100dvh;
-    border-radius: 0;
-    border-width: 4px;
+    width: 100vw; width: 100dvw;
+    height: 100vh; height: 100dvh;
+    border-radius: 0; border-width: 4px;
     box-shadow: inset 0 0 80px rgba(0,0,0,0.3);
   }
 }
 
-/* felt texture */
 #gameTable::before {
-  content: '';
-  position: absolute; inset: 0;
+  content: ''; position: absolute; inset: 0;
   background-image: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px),
     repeating-linear-gradient(90deg, transparent, transparent 2px, rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px);
-  border-radius: 16px;
-  pointer-events: none;
+  border-radius: 16px; pointer-events: none;
 }
 
 /* ── PLAYER ZONES ── */
 .player-zone {
-  position: absolute;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
+  position: absolute; display: flex; flex-direction: column; align-items: center; gap: 4px;
 }
-
-/* TOP player (Pemain 1 - pid 1) */
-.pzone-top {
-  top: 10px; left: 50%; transform: translateX(-50%);
-  flex-direction: column;
-  align-items: center;
-}
-
-/* LEFT player (Pemain 2 - pid 2) */
-.pzone-left {
-  left: 10px; top: 50%; transform: translateY(-50%);
-  flex-direction: column;
-  align-items: center;
-}
-
-/* RIGHT player (Pemain 3 - pid 3) */
-.pzone-right {
-  right: 10px; top: 50%; transform: translateY(-50%);
-  flex-direction: column;
-  align-items: center;
-}
-
-/* BOTTOM player (Human - pid 0) */
-.pzone-bottom {
-  bottom: 0; left: 50%; transform: translateX(-50%);
-  flex-direction: column;
-  align-items: center;
-  width: 100%;
-  max-width: 680px;
-}
+.pzone-top { top: 10px; left: 50%; transform: translateX(-50%); }
+.pzone-left { left: 10px; top: 50%; transform: translateY(-50%); }
+.pzone-right { right: 10px; top: 50%; transform: translateY(-50%); }
+.pzone-bottom { bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 680px; }
 
 /* ── PLAYER NAMEPLATE ── */
 .nameplate {
   display: flex; align-items: center; gap: 6px;
-  background: rgba(0,0,0,0.55);
-  border: 1px solid rgba(255,255,255,0.12);
-  border-radius: 20px;
-  padding: 4px 10px 4px 5px;
-  backdrop-filter: blur(4px);
-  transition: all 0.3s;
-  white-space: nowrap;
+  background: rgba(0,0,0,0.55); border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 20px; padding: 4px 10px 4px 5px;
+  backdrop-filter: blur(4px); transition: all 0.3s; white-space: nowrap;
 }
-
-.nameplate.active {
-  border-color: var(--gold);
-  box-shadow: 0 0 12px rgba(201,168,76,0.5);
-  background: rgba(0,0,0,0.75);
-}
-
+.nameplate.active { border-color: var(--gold); box-shadow: 0 0 12px rgba(201,168,76,0.5); background: rgba(0,0,0,0.75); }
 .nameplate.finished { opacity: 0.5; }
 
 .avatar {
-  width: 26px; height: 26px;
-  border-radius: 50%;
+  width: 26px; height: 26px; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
-  font-size: 0.75rem;
-  font-weight: 700;
-  flex-shrink: 0;
+  font-size: 0.75rem; font-weight: 700; flex-shrink: 0;
 }
-
 .np-info { display: flex; flex-direction: column; gap: 0; }
 .np-name { font-size: 0.68rem; font-weight: 600; color: #fff; line-height: 1.2; }
 .np-cards { font-size: 0.58rem; color: rgba(255,255,255,0.5); line-height: 1.2; }
 
 .turn-dot {
-  width: 6px; height: 6px;
-  border-radius: 50%;
-  background: var(--gold);
-  box-shadow: 0 0 6px var(--gold);
-  animation: pulse 1s infinite;
-  display: none;
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--gold); box-shadow: 0 0 6px var(--gold);
+  animation: pulse 1s infinite; display: none;
 }
 .nameplate.active .turn-dot { display: block; }
+@keyframes pulse { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.6; transform: scale(0.8); } }
 
-@keyframes pulse {
-  0%,100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.6; transform: scale(0.8); }
-}
-
-/* ── BOT CARD BACKS ── */
-.bot-cards {
-  display: flex;
-  gap: 0;
-}
-
+/* ── BOT / OPPONENT CARDS ── */
+.bot-cards { display: flex; gap: 0; }
 .card-back {
-  width: 22px; height: 32px;
-  border-radius: 4px;
+  width: 22px; height: 32px; border-radius: 4px;
   background: linear-gradient(135deg, #1a3a6e 0%, #0d1f45 100%);
-  border: 1px solid rgba(255,255,255,0.2);
-  box-shadow: 1px 1px 3px rgba(0,0,0,0.4);
-  margin-right: -10px;
-  position: relative;
-  flex-shrink: 0;
+  border: 1px solid rgba(255,255,255,0.2); box-shadow: 1px 1px 3px rgba(0,0,0,0.4);
+  margin-right: -10px; position: relative; flex-shrink: 0;
 }
-
 .card-back::after {
-  content: '';
-  position: absolute; inset: 3px;
-  border: 1px solid rgba(255,255,255,0.15);
-  border-radius: 2px;
+  content: ''; position: absolute; inset: 3px;
+  border: 1px solid rgba(255,255,255,0.15); border-radius: 2px;
 }
+.pzone-left .bot-cards, .pzone-right .bot-cards { flex-direction: column; }
+.pzone-left .card-back, .pzone-right .card-back { width: 32px; height: 22px; margin-right: 0; margin-bottom: -8px; }
 
-.pzone-left .bot-cards, .pzone-right .bot-cards {
-  flex-direction: column;
-  gap: 0;
-}
-.pzone-left .card-back, .pzone-right .card-back {
-  width: 32px; height: 22px;
-  margin-right: 0;
-  margin-bottom: -8px;
-}
-
-/* ── CENTER TABLE AREA ── */
+/* ── CENTER TABLE ── */
 #tableCenter {
-  position: absolute;
-  top: 50%; left: 50%;
-  transform: translate(-50%, -50%);
-  width: 320px;
-  min-height: 170px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  width: 320px; min-height: 170px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
 }
-
 .table-ring {
-  position: absolute;
-  width: 300px; height: 160px;
-  border-radius: 50%;
-  border: 1px solid rgba(201,168,76,0.2);
-  top: 50%; left: 50%;
-  transform: translate(-50%,-50%);
+  position: absolute; width: 300px; height: 160px; border-radius: 50%;
+  border: 1px solid rgba(201,168,76,0.2); top: 50%; left: 50%; transform: translate(-50%,-50%);
   pointer-events: none;
 }
-
-#tableCardsWrap {
-  position: relative;
-  width: 100%;
-  min-height: 140px;
-  padding: 8px;
-}
-
+#tableCardsWrap { position: relative; width: 100%; min-height: 140px; padding: 8px; }
 .table-empty-text {
-  position: absolute;
-  top: 50%; left: 50%;
-  transform: translate(-50%, -50%);
-  color: rgba(201,168,76,0.35);
-  font-size: 0.7rem;
-  letter-spacing: 2px;
-  text-transform: uppercase;
-  font-family: 'Playfair Display', serif;
-  white-space: nowrap;
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  color: rgba(201,168,76,0.35); font-size: 0.7rem; letter-spacing: 2px;
+  text-transform: uppercase; font-family: 'Playfair Display', serif; white-space: nowrap;
 }
-
-/* Kartu dibuang — tiap giliran jadi 1 kelompok kartu yang rapi & jelas urutannya,
-   giliran-giliran sebelumnya (dalam ronde yg sama) ditumpuk agak menyebar di belakang,
-   giliran terakhir selalu tegas & jelas di paling atas */
-.table-stack {
-  position: absolute;
-  top: 50%; left: 50%;
-  display: flex;
-  align-items: center;
-  transition: transform 0.15s ease;
-}
+.table-stack { position: absolute; top: 50%; left: 50%; display: flex; align-items: center; transition: transform 0.15s ease; }
 .table-stack .card { cursor: default; }
-.table-stack.stack-old .card {
-  filter: grayscale(0.7) contrast(0.92) brightness(0.82);
-  box-shadow: 1px 3px 7px rgba(0,0,0,0.5);
-}
-.table-stack.stack-top .card {
-  filter: none;
-  box-shadow: 0 8px 22px rgba(0,0,0,0.55), 0 0 0 1px rgba(201,168,76,0.4);
-}
+.table-stack.stack-old .card { filter: grayscale(0.7) contrast(0.92) brightness(0.82); box-shadow: 1px 3px 7px rgba(0,0,0,0.5); }
+.table-stack.stack-top .card { filter: none; box-shadow: 0 8px 22px rgba(0,0,0,0.55), 0 0 0 1px rgba(201,168,76,0.4); }
 
 /* ── STATUS STRIP ── */
 #statusStrip {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, calc(-50% + 78px));
-  display: flex;
-  gap: 6px;
-  align-items: center;
-  flex-wrap: wrap;
-  justify-content: center;
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, calc(-50% + 78px));
+  display: flex; gap: 6px; align-items: center; flex-wrap: wrap; justify-content: center;
 }
-
-.mode-chip {
-  padding: 3px 10px;
-  border-radius: 12px;
-  font-size: 0.6rem;
-  font-weight: 600;
-  letter-spacing: 1px;
-  text-transform: uppercase;
-}
+.mode-chip { padding: 3px 10px; border-radius: 12px; font-size: 0.6rem; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; }
 .chip-free { background: rgba(46,204,113,0.2); color: #2ecc71; border: 1px solid rgba(46,204,113,0.4); }
 .chip-single { background: rgba(74,158,255,0.2); color: #4a9eff; border: 1px solid rgba(74,158,255,0.4); }
 .chip-combo { background: rgba(243,156,18,0.2); color: #f39c12; border: 1px solid rgba(243,156,18,0.4); }
 .chip-rem { background: rgba(231,76,60,0.25); color: #e74c3c; border: 1px solid rgba(231,76,60,0.5); animation: remBlink 0.8s infinite; }
+@keyframes remBlink { 0%,100% { box-shadow: 0 0 6px rgba(231,76,60,0.4); } 50% { box-shadow: 0 0 14px rgba(231,76,60,0.8); } }
+.pass-chip { padding: 3px 8px; border-radius: 12px; font-size: 0.6rem; color: rgba(255,255,255,0.4); background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.08); }
 
-@keyframes remBlink {
-  0%,100% { box-shadow: 0 0 6px rgba(231,76,60,0.4); }
-  50% { box-shadow: 0 0 14px rgba(231,76,60,0.8); }
-}
-
-.pass-chip {
-  padding: 3px 8px;
-  border-radius: 12px;
-  font-size: 0.6rem;
-  color: rgba(255,255,255,0.4);
-  background: rgba(0,0,0,0.3);
-  border: 1px solid rgba(255,255,255,0.08);
-}
-
-#handArea.disabled {
-  opacity: 0.38;
-  pointer-events: none;
-  filter: saturate(0.25);
-}
-
+#handArea.disabled { opacity: 0.38; pointer-events: none; filter: saturate(0.25); }
 .bomb-badge {
-  position: absolute;
-  top: -8px; left: -5px;
-  background: #e67e22;
-  color: #fff;
-  font-size: 0.44rem;
-  font-weight: 700;
-  padding: 1px 4px;
-  border-radius: 4px;
-  letter-spacing: 0.2px;
-  white-space: nowrap;
-  z-index: 20;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.5);
-  pointer-events: none;
+  position: absolute; top: -8px; left: -5px; background: #e67e22; color: #fff;
+  font-size: 0.44rem; font-weight: 700; padding: 1px 4px; border-radius: 4px;
+  letter-spacing: 0.2px; white-space: nowrap; z-index: 20; box-shadow: 0 1px 4px rgba(0,0,0,0.5); pointer-events: none;
 }
 
-/* ── PLAYING CARDS ── */
+/* ── CARDS ── */
 .card {
-  width: 44px; height: 62px;
-  background: var(--card-bg);
-  border: 1px solid var(--card-border);
-  border-radius: 6px;
-  display: block;
-  padding: 4px 0 0 5px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: transform 0.15s, box-shadow 0.15s;
-  position: relative;
-  box-shadow: 1px 2px 6px rgba(0,0,0,0.3);
-  flex-shrink: 0;
-  overflow: hidden;
+  width: 44px; height: 62px; background: var(--card-bg); border: 1px solid var(--card-border);
+  border-radius: 6px; display: block; padding: 4px 0 0 5px; font-weight: 700; cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s; position: relative; box-shadow: 1px 2px 6px rgba(0,0,0,0.3);
+  flex-shrink: 0; overflow: hidden;
 }
-
-.card .c-rank {
-  font-size: 0.85rem;
-  line-height: 1;
-  font-family: 'Playfair Display', serif;
-}
-.card .c-suit {
-  font-size: 0.95rem;
-  line-height: 1;
-  margin-top: 1px;
-}
-.card .c-suit-bg {
-  position: absolute;
-  right: 3px; bottom: 2px;
-  font-size: 1.5rem;
-  opacity: 0.15;
-  line-height: 1;
-}
+.card .c-rank { font-size: 0.85rem; line-height: 1; font-family: 'Playfair Display', serif; }
+.card .c-suit { font-size: 0.95rem; line-height: 1; margin-top: 1px; }
+.card .c-suit-bg { position: absolute; right: 3px; bottom: 2px; font-size: 1.5rem; opacity: 0.15; line-height: 1; }
 .card.red { color: var(--red); }
 .card.black { color: var(--black); }
 
-/* Table cards — slightly bigger */
-#tableCardsWrap .card {
-  width: 48px; height: 68px;
-  box-shadow: 2px 4px 10px rgba(0,0,0,0.4);
-  padding: 5px 0 0 6px;
-}
+#tableCardsWrap .card { width: 48px; height: 68px; box-shadow: 2px 4px 10px rgba(0,0,0,0.4); padding: 5px 0 0 6px; }
 #tableCardsWrap .card .c-rank { font-size: 0.95rem; }
 #tableCardsWrap .card .c-suit { font-size: 1.05rem; }
 #tableCardsWrap .card .c-suit-bg { font-size: 1.7rem; right: 4px; bottom: 3px; }
 
-/* ── HUMAN HAND ── */
+/* ── HAND ── */
 #handArea {
-  position: absolute;
-  bottom: 0; left: 50%;
-  transform: translateX(-50%);
-  width: 100%;
-  max-width: 680px;
-  padding: 6px 12px 4px;
-  background: rgba(0,0,0,0.4);
-  backdrop-filter: blur(6px);
-  border-top: 1px solid rgba(201,168,76,0.2);
-  border-radius: 0 0 14px 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  align-items: center;
+  position: absolute; bottom: 0; left: 50%; transform: translateX(-50%);
+  width: 100%; max-width: 680px; padding: 6px 12px 4px; background: rgba(0,0,0,0.4);
+  backdrop-filter: blur(6px); border-top: 1px solid rgba(201,168,76,0.2);
+  border-radius: 0 0 14px 14px; display: flex; flex-direction: column; gap: 6px; align-items: center;
 }
-
-#handCardsWrap {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  padding: 8px 8px 2px;
-  width: 100%;
-  align-items: flex-start;
-  justify-content: center;
-  min-height: 134px;
-  max-height: 140px;
-  overflow: hidden;
-}
-
-#handCardsWrap .card {
-  width: 44px; height: 62px;
-  cursor: grab;
-  transition: transform 0.15s, box-shadow 0.15s;
-  flex-shrink: 0;
-}
-
-#handCardsWrap .card.selected {
-  transform: translateY(-12px);
-  box-shadow: 0 8px 20px rgba(201,168,76,0.5), 0 0 0 2px var(--gold);
-  z-index: 10;
-}
-
-#handCardsWrap .card:hover:not(.selected) {
-  transform: translateY(-5px);
-  box-shadow: 2px 2px 12px rgba(0,0,0,0.5);
-  z-index: 5;
-}
-
-#handCardsWrap .card.dragging {
-  opacity: 0.5;
-  cursor: grabbing;
-}
+#handCardsWrap { display: flex; flex-wrap: wrap; gap: 4px; padding: 8px 8px 2px; width: 100%; align-items: flex-start; justify-content: center; min-height: 134px; max-height: 140px; overflow: hidden; }
+#handCardsWrap .card { width: 44px; height: 62px; cursor: grab; transition: transform 0.15s, box-shadow 0.15s; flex-shrink: 0; }
+#handCardsWrap .card.selected { transform: translateY(-12px); box-shadow: 0 8px 20px rgba(201,168,76,0.5), 0 0 0 2px var(--gold); z-index: 10; }
+#handCardsWrap .card:hover:not(.selected) { transform: translateY(-5px); box-shadow: 2px 2px 12px rgba(0,0,0,0.5); z-index: 5; }
+#handCardsWrap .card.dragging { opacity: 0.5; cursor: grabbing; }
 
 .drag-over-left { border-left: 2px solid var(--gold) !important; }
 .drag-over-right { border-right: 2px solid var(--gold) !important; }
 
 /* ── ACTIONS BAR ── */
-#actionsBar {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-  flex-wrap: wrap;
-  justify-content: center;
-}
-
-.btn {
-  font-family: 'DM Sans', sans-serif;
-  font-size: 0.68rem;
-  font-weight: 600;
-  padding: 6px 14px;
-  border-radius: 8px;
-  border: none;
-  cursor: pointer;
-  transition: all 0.15s;
-  letter-spacing: 0.3px;
-  white-space: nowrap;
-}
+#actionsBar { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; justify-content: center; }
+.btn { font-family: 'DM Sans', sans-serif; font-size: 0.68rem; font-weight: 600; padding: 6px 14px; border-radius: 8px; border: none; cursor: pointer; transition: all 0.15s; letter-spacing: 0.3px; white-space: nowrap; }
 .btn:disabled { opacity: 0.3; cursor: not-allowed; transform: none !important; }
 .btn:not(:disabled):hover { transform: translateY(-1px); }
 .btn:not(:disabled):active { transform: translateY(0); }
 
-/* ── Ikon aksi utama (Main/Pass/REM/BOM) — bulat besar, tanpa teks ── */
-.btn-icon {
-  width: 54px; height: 54px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.5rem;
-  line-height: 1;
-  flex-shrink: 0;
-  padding: 0;
-}
+.btn-icon { width: 54px; height: 54px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; line-height: 1; flex-shrink: 0; padding: 0; }
 .btn-icon:not(:disabled):hover { transform: translateY(-2px) scale(1.05); }
 .btn-icon:not(:disabled):active { transform: translateY(0) scale(0.97); }
 
@@ -478,95 +220,21 @@ body {
 .btn-skip.btn-icon { width: 44px; height: 44px; font-size: 1.1rem; background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.6); border: 1px solid rgba(255,255,255,0.1); }
 .btn-new { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.6); border: 1px solid rgba(255,255,255,0.1); font-size: 0.62rem; }
 
-.selected-info {
-  font-size: 0.62rem;
-  color: var(--gold);
-  opacity: 0.9;
-  min-width: 80px;
-  text-align: center;
-}
-
-/* ── HINT TEXT ── */
-#hintBar {
-  font-size: 0.6rem;
-  color: rgba(255,255,255,0.4);
-  text-align: center;
-  min-height: 14px;
-  padding-bottom: 2px;
-}
+.selected-info { font-size: 0.62rem; color: var(--gold); opacity: 0.9; min-width: 80px; text-align: center; }
+#hintBar { font-size: 0.6rem; color: rgba(255,255,255,0.4); text-align: center; min-height: 14px; padding-bottom: 2px; }
 #hintBar .hl { color: var(--gold-light); }
 #hintBar .danger { color: #e74c3c; }
 
-/* ── SORT BUTTONS ── */
-#sortBar {
-  display: flex; gap: 4px;
-}
-.btn-sort {
-  font-size: 0.56rem;
-  padding: 3px 8px;
-  background: rgba(255,255,255,0.07);
-  color: rgba(255,255,255,0.5);
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.15s;
-}
+#sortBar { display: flex; gap: 4px; }
+.btn-sort { font-size: 0.56rem; padding: 3px 8px; background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.5); border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; cursor: pointer; transition: all 0.15s; }
 .btn-sort:hover { background: rgba(255,255,255,0.13); color: rgba(255,255,255,0.8); }
 
 /* ── LOG PANEL ── */
-#logToggle {
-  position: absolute;
-  top: 12px; right: 18px;
-  background: rgba(0,0,0,0.5);
-  border: 1px solid rgba(255,255,255,0.1);
-  border-radius: 8px;
-  color: rgba(255,255,255,0.5);
-  font-size: 0.6rem;
-  padding: 4px 10px;
-  cursor: pointer;
-  z-index: 500;
-  font-family: 'DM Sans', sans-serif;
-  transition: all 0.15s;
-}
-#logToggle:hover { background: rgba(0,0,0,0.7); color: #fff; }
-
-#logPanel {
-  position: absolute;
-  top: 40px; right: 12px;
-  width: 230px;
-  max-height: 320px;
-  background: rgba(8,16,10,0.96);
-  border: 1px solid rgba(201,168,76,0.3);
-  border-radius: 10px;
-  overflow: hidden;
-  display: none;
-  flex-direction: column;
-  z-index: 500;
-  backdrop-filter: blur(10px);
-}
+#logToggle { position: absolute; top: 12px; right: 18px; background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; color: rgba(255,255,255,0.5); font-size: 0.6rem; padding: 4px 10px; cursor: pointer; z-index: 500; }
+#logPanel { position: absolute; top: 40px; right: 12px; width: 230px; max-height: 320px; background: rgba(8,16,10,0.96); border: 1px solid rgba(201,168,76,0.3); border-radius: 10px; overflow: hidden; display: none; flex-direction: column; z-index: 500; backdrop-filter: blur(10px); }
 #logPanel.open { display: flex; }
-
-#logTitle {
-  padding: 8px 12px;
-  font-size: 0.62rem;
-  font-weight: 600;
-  color: var(--gold);
-  border-bottom: 1px solid rgba(201,168,76,0.15);
-  letter-spacing: 1px;
-  text-transform: uppercase;
-}
-
-#logScroll {
-  overflow-y: auto;
-  padding: 6px 8px;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  flex: 1;
-}
-#logScroll::-webkit-scrollbar { width: 3px; }
-#logScroll::-webkit-scrollbar-thumb { background: rgba(201,168,76,0.3); border-radius: 2px; }
-
+#logTitle { padding: 8px 12px; font-size: 0.62rem; font-weight: 600; color: var(--gold); border-bottom: 1px solid rgba(201,168,76,0.15); letter-spacing: 1px; text-transform: uppercase; }
+#logScroll { overflow-y: auto; padding: 6px 8px; display: flex; flex-direction: column; gap: 2px; flex: 1; }
 .log-line { font-size: 0.62rem; line-height: 1.5; padding: 1px 4px; border-radius: 3px; }
 .log-line.system { color: var(--gold); }
 .log-line.play { color: rgba(255,255,255,0.8); }
@@ -577,386 +245,201 @@ body {
 .log-line.info { color: rgba(255,255,255,0.35); font-style: italic; }
 
 /* ── GAME OVER OVERLAY ── */
-#gameOverlay {
-  position: absolute; inset: 0;
-  background: rgba(0,0,0,0.75);
-  display: none;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 16px;
-  z-index: 200;
-  border-radius: 16px;
-  backdrop-filter: blur(8px);
-}
+#gameOverlay { position: absolute; inset: 0; background: rgba(0,0,0,0.75); display: none; flex-direction: column; align-items: center; justify-content: center; gap: 16px; z-index: 200; border-radius: 16px; backdrop-filter: blur(8px); }
 #gameOverlay.show { display: flex; }
-
-#gameOverlay h2 {
-  font-family: 'Playfair Display', serif;
-  color: var(--gold);
-  font-size: 2rem;
-  text-shadow: 0 0 30px rgba(201,168,76,0.5);
-}
-
-.result-list {
-  display: flex; flex-direction: column; gap: 6px; align-items: center;
-}
-.result-row {
-  display: flex; align-items: center; gap: 10px;
-  padding: 8px 20px;
-  background: rgba(255,255,255,0.06);
-  border: 1px solid rgba(255,255,255,0.1);
-  border-radius: 10px;
-  min-width: 200px;
-}
+#gameOverlay h2 { font-family: 'Playfair Display', serif; color: var(--gold); font-size: 2rem; text-shadow: 0 0 30px rgba(201,168,76,0.5); }
+.result-list { display: flex; flex-direction: column; gap: 6px; align-items: center; }
+.result-row { display: flex; align-items: center; gap: 10px; padding: 8px 20px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; min-width: 200px; }
 .result-medal { font-size: 1.4rem; }
 .result-name { font-size: 0.9rem; font-weight: 600; color: #fff; }
 
-.btn-newgame {
-  background: var(--gold); color: #1a1a1a;
-  font-family: 'Playfair Display', serif;
-  font-size: 0.9rem;
-  padding: 10px 28px;
-  border-radius: 10px;
-  border: none;
-  cursor: pointer;
-  font-weight: 700;
-  letter-spacing: 0.5px;
-  margin-top: 8px;
-  transition: all 0.15s;
-}
+.btn-newgame { background: var(--gold); color: #1a1a1a; font-family: 'Playfair Display', serif; font-size: 0.9rem; padding: 10px 28px; border-radius: 10px; border: none; cursor: pointer; font-weight: 700; margin-top: 8px; transition: all 0.15s; }
 .btn-newgame:hover { background: var(--gold-light); transform: translateY(-2px); }
 
-/* ── TITLE ── */
-#gameTitle {
-  position: absolute;
-  top: 12px; left: 50%; transform: translateX(-50%);
-  font-family: 'Playfair Display', serif;
-  color: rgba(201,168,76,0.4);
-  font-size: 0.75rem;
-  letter-spacing: 4px;
-  text-transform: uppercase;
-  pointer-events: none;
-  white-space: nowrap;
-}
+#gameTitle { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); font-family: 'Playfair Display', serif; color: rgba(201,168,76,0.4); font-size: 0.75rem; letter-spacing: 4px; text-transform: uppercase; pointer-events: none; white-space: nowrap; }
 
-/* ── TOAST NOTIFICATIONS ── */
-#toast {
-  position: absolute;
-  bottom: 110px; left: 50%;
-  transform: translateX(-50%) translateY(20px);
-  background: rgba(0,0,0,0.85);
-  color: #fff;
-  padding: 7px 16px;
-  border-radius: 20px;
-  font-size: 0.68rem;
-  border: 1px solid rgba(255,255,255,0.1);
-  opacity: 0;
-  transition: all 0.3s;
-  pointer-events: none;
-  white-space: nowrap;
-  z-index: 150;
-}
-#toast.show {
-  opacity: 1;
-  transform: translateX(-50%) translateY(0);
-}
+#toast { position: absolute; bottom: 110px; left: 50%; transform: translateX(-50%) translateY(20px); background: rgba(0,0,0,0.85); color: #fff; padding: 7px 16px; border-radius: 20px; font-size: 0.68rem; border: 1px solid rgba(255,255,255,0.1); opacity: 0; transition: all 0.3s; pointer-events: none; white-space: nowrap; z-index: 150; }
+#toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 #toast.toast-err { border-color: rgba(192,57,43,0.5); color: #e74c3c; }
 
-/* ── NEW GAME BTN (corner) ── */
-#btnNewGame {
-  position: absolute;
-  top: 12px; left: 18px;
-}
+#btnNewGame { position: absolute; top: 12px; left: 18px; }
+#btnRules { position: absolute; top: 12px; left: 90px; }
 
-/* ── RULES BUTTON ── */
-#btnRules {
-  position: absolute;
-  top: 12px; left: 90px;
-}
-
-/* ── RULES PANEL ── */
-#rulesOverlay {
-  position: absolute; inset: 0;
-  background: rgba(0,0,0,0.82);
-  display: none;
-  align-items: center;
-  justify-content: center;
-  z-index: 300;
-  backdrop-filter: blur(6px);
-  border-radius: 16px;
-}
+/* ── RULES OVERLAY ── */
+#rulesOverlay { position: absolute; inset: 0; background: rgba(0,0,0,0.82); display: none; align-items: center; justify-content: center; z-index: 300; backdrop-filter: blur(6px); border-radius: 16px; }
 #rulesOverlay.open { display: flex; }
-
-#rulesBox {
-  width: min(90%, 620px);
-  max-height: 88%;
-  background: #0e1f15;
-  border: 1px solid rgba(201,168,76,0.35);
-  border-radius: 14px;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  box-shadow: 0 20px 60px rgba(0,0,0,0.7);
-  animation: slideUp 0.25s ease;
-}
-@keyframes slideUp {
-  from { transform: translateY(30px); opacity:0; }
-  to   { transform: translateY(0);    opacity:1; }
-}
-
-#rulesHeader {
-  padding: 14px 18px;
-  border-bottom: 1px solid rgba(201,168,76,0.2);
-  display: flex; align-items: center; justify-content: space-between;
-}
-#rulesHeader h3 {
-  font-family: 'Playfair Display', serif;
-  color: var(--gold);
-  font-size: 1.1rem;
-}
-#rulesClose {
-  background: rgba(255,255,255,0.08);
-  border: 1px solid rgba(255,255,255,0.1);
-  color: rgba(255,255,255,0.6);
-  border-radius: 6px;
-  padding: 4px 10px;
-  cursor: pointer;
-  font-family: 'DM Sans', sans-serif;
-  font-size: 0.72rem;
-  transition: all 0.15s;
-}
-#rulesClose:hover { background: rgba(255,255,255,0.15); color:#fff; }
-
-#rulesBody {
-  overflow-y: auto;
-  padding: 16px 18px;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(201,168,76,0.3) transparent;
-}
-#rulesBody::-webkit-scrollbar { width: 4px; }
-#rulesBody::-webkit-scrollbar-thumb { background: rgba(201,168,76,0.3); border-radius: 4px; }
-
+#rulesBox { width: min(90%, 620px); max-height: 88%; background: #0e1f15; border: 1px solid rgba(201,168,76,0.35); border-radius: 14px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.7); }
+#rulesHeader { padding: 14px 18px; border-bottom: 1px solid rgba(201,168,76,0.2); display: flex; align-items: center; justify-content: space-between; }
+#rulesHeader h3 { font-family: 'Playfair Display', serif; color: var(--gold); font-size: 1.1rem; }
+#rulesClose { background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.1); color: rgba(255,255,255,0.6); border-radius: 6px; padding: 4px 10px; cursor: pointer; font-size: 0.72rem; }
+#rulesBody { overflow-y: auto; padding: 16px 18px; display: flex; flex-direction: column; gap: 14px; }
 .rule-section { display: flex; flex-direction: column; gap: 6px; }
-.rule-section h4 {
-  font-size: 0.72rem;
-  font-weight: 700;
-  color: var(--gold);
-  letter-spacing: 1px;
-  text-transform: uppercase;
-  display: flex; align-items: center; gap: 6px;
-}
-.rule-section h4::after {
-  content: '';
-  flex: 1;
-  height: 1px;
-  background: rgba(201,168,76,0.2);
-}
-.rule-section p, .rule-section li {
-  font-size: 0.72rem;
-  color: rgba(255,255,255,0.7);
-  line-height: 1.65;
-}
+.rule-section h4 { font-size: 0.72rem; font-weight: 700; color: var(--gold); letter-spacing: 1px; text-transform: uppercase; display: flex; align-items: center; gap: 6px; }
+.rule-section p, .rule-section li { font-size: 0.72rem; color: rgba(255,255,255,0.7); line-height: 1.65; }
 .rule-section ul { padding-left: 14px; display: flex; flex-direction: column; gap: 2px; }
 .rule-section li { list-style: disc; }
 .rule-section .hl { color: var(--gold-light); font-weight: 600; }
 .rule-section .danger { color: #e74c3c; font-weight: 600; }
 .rule-section .good { color: #2ecc71; font-weight: 600; }
 
-.rank-row {
-  display: flex; gap: 4px; flex-wrap: wrap; align-items: center;
-  font-size: 0.68rem; color: rgba(255,255,255,0.5);
-}
-.rcard {
-  background: #faf8f2; color: #1a1a2e;
-  border-radius: 4px; padding: 2px 6px;
-  font-size: 0.68rem; font-weight: 700;
-  border: 1px solid #e8e0d0;
-}
+.rank-row { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; font-size: 0.68rem; color: rgba(255,255,255,0.5); }
+.rcard { background: #faf8f2; color: #1a1a2e; border-radius: 4px; padding: 2px 6px; font-size: 0.68rem; font-weight: 700; border: 1px solid #e8e0d0; }
 .rcard.red { color: #c0392b; }
 .suit-row { display: flex; gap: 8px; margin-top: 2px; }
 .suit-item { display: flex; align-items: center; gap: 4px; font-size: 0.7rem; color: rgba(255,255,255,0.6); }
-.suit-item .rcard { font-size: 0.9rem; padding: 1px 5px; }
 
-/* ── ANIMASI KARTU ── */
-@keyframes cardDeal {
-  from { transform: translateY(-40px) scale(0.8); opacity: 0; }
-  to   { transform: translateY(0) scale(1); opacity: 1; }
-}
-@keyframes cardPlay {
-  0%   { transform: scale(1); }
-  40%  { transform: scale(1.12) translateY(-6px); }
-  100% { transform: scale(1); }
-}
-@keyframes cardFlyIn {
-  from { transform: translateY(-60px) scale(0.7) rotate(-5deg); opacity: 0; }
-  to   { transform: translateY(0) scale(1) rotate(0deg); opacity: 1; }
-}
-@keyframes winPulse {
-  0%,100% { box-shadow: 0 0 0 0 rgba(46,204,113,0.5); }
-  50%     { box-shadow: 0 0 0 8px rgba(46,204,113,0); }
-}
-@keyframes remShake {
-  0%,100% { transform: translateX(0); }
-  20%     { transform: translateX(-6px) rotate(-2deg); }
-  40%     { transform: translateX(6px) rotate(2deg); }
-  60%     { transform: translateX(-4px); }
-  80%     { transform: translateX(4px); }
-}
-@keyframes bombFlash {
-  0%   { background: rgba(230,126,34,0); }
-  30%  { background: rgba(230,126,34,0.25); }
-  100% { background: rgba(230,126,34,0); }
-}
-@keyframes nameplateWin {
-  0%,100% { transform: scale(1); }
-  50%     { transform: scale(1.06); }
-}
+/* ── ANIMASI ── */
+@keyframes cardDeal { from { transform: translateY(-40px) scale(0.8); opacity: 0; } to { transform: translateY(0) scale(1); opacity: 1; } }
+@keyframes cardPlay { 0% { transform: scale(1); } 40% { transform: scale(1.12) translateY(-6px); } 100% { transform: scale(1); } }
+@keyframes cardFlyIn { from { transform: translateY(-60px) scale(0.7) rotate(-5deg); opacity: 0; } to { transform: translateY(0) scale(1) rotate(0deg); opacity: 1; } }
+@keyframes remShake { 0%,100% { transform: translateX(0); } 20% { transform: translateX(-6px) rotate(-2deg); } 40% { transform: translateX(6px) rotate(2deg); } 60% { transform: translateX(-4px); } 80% { transform: translateX(4px); } }
+@keyframes bombFlash { 0% { background: rgba(230,126,34,0); } 30% { background: rgba(230,126,34,0.25); } 100% { background: rgba(230,126,34,0); } }
+@keyframes nameplateWin { 0%,100% { transform: scale(1); } 50% { transform: scale(1.06); } }
 
 .card-deal-anim { animation: cardDeal 0.3s ease both; }
-.card-play-anim { animation: cardPlay 0.35s ease; }
 .card-flyin-anim { animation: cardFlyIn 0.4s cubic-bezier(.2,1.4,.6,1) both; }
 .table-rem-anim { animation: remShake 0.5s ease; }
 .table-bomb-anim { animation: bombFlash 0.8s ease; }
 .np-win-anim { animation: nameplateWin 0.5s ease 3; }
 
+/* ── MAIN MENU OVERLAY ── */
+#menuOverlay {
+  position: absolute; inset: 0;
+  background: radial-gradient(ellipse at center, #1a4a2e 0%, #0e1f15 100%);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 16px; z-index: 450; border-radius: 16px;
+}
+#menuOverlay.hidden { display: none; }
+#menuTitle { font-family: 'Playfair Display', serif; color: var(--gold); font-size: 2.2rem; text-shadow: 0 0 40px rgba(201,168,76,0.4); }
+
+.menu-card {
+  background: rgba(0,0,0,0.4); border: 1px solid rgba(201,168,76,0.3);
+  border-radius: 12px; padding: 16px; width: min(90%, 380px);
+  display: flex; flex-direction: column; gap: 10px; text-align: center;
+}
+.menu-card h3 { color: var(--gold-light); font-size: 0.9rem; }
+.menu-input {
+  background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 6px; padding: 8px; color: #fff; font-size: 0.8rem; text-align: center; outline: none;
+}
+.menu-input:focus { border-color: var(--gold); }
+.menu-btn-group { display: flex; gap: 8px; justify-content: center; }
+
 /* ── DIFFICULTY SCREEN ── */
 #diffOverlay {
   position: absolute; inset: 0;
   background: radial-gradient(ellipse at center, #1a4a2e 0%, #0e1f15 100%);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 20px;
-  z-index: 400;
-  border-radius: 16px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 20px; z-index: 400; border-radius: 16px;
 }
 #diffOverlay.hidden { display: none; }
-
-#diffTitle {
-  font-family: 'Playfair Display', serif;
-  color: var(--gold);
-  font-size: 2rem;
-  text-align: center;
-  text-shadow: 0 0 40px rgba(201,168,76,0.4);
-  letter-spacing: 2px;
-}
-#diffSubtitle {
-  font-size: 0.78rem;
-  color: rgba(255,255,255,0.4);
-  letter-spacing: 3px;
-  text-transform: uppercase;
-  margin-top: -12px;
-}
-
-.diff-cards-deco {
-  display: flex; gap: 6px; margin-bottom: 4px;
-}
-.diff-card-deco {
-  width: 36px; height: 52px;
-  background: var(--card-bg);
-  border-radius: 5px;
-  border: 1px solid var(--card-border);
-  display: flex; flex-direction: column;
-  align-items: center; justify-content: center;
-  font-weight: 700; font-family: 'Playfair Display', serif;
-  box-shadow: 2px 4px 12px rgba(0,0,0,0.5);
-}
-.diff-card-deco.red { color: var(--red); }
-
-.diff-options {
-  display: flex; gap: 12px; flex-wrap: wrap; justify-content: center;
-}
-
+#diffTitle { font-family: 'Playfair Display', serif; color: var(--gold); font-size: 2rem; text-shadow: 0 0 40px rgba(201,168,76,0.4); }
+#diffSubtitle { font-size: 0.78rem; color: rgba(255,255,255,0.4); letter-spacing: 3px; text-transform: uppercase; margin-top: -12px; }
+.diff-options { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
 .diff-btn {
-  width: 160px;
-  padding: 16px 12px;
-  border-radius: 12px;
-  border: 2px solid rgba(255,255,255,0.1);
-  background: rgba(255,255,255,0.05);
-  cursor: pointer;
-  transition: all 0.2s;
-  display: flex; flex-direction: column; align-items: center; gap: 8px;
-  font-family: 'DM Sans', sans-serif;
+  width: 140px; padding: 14px 10px; border-radius: 12px; border: 2px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.05); cursor: pointer; transition: all 0.2s;
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
 }
-.diff-btn:hover {
-  transform: translateY(-4px);
-  border-color: var(--gold);
-  background: rgba(201,168,76,0.1);
-  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
-}
+.diff-btn:hover { transform: translateY(-4px); border-color: var(--gold); background: rgba(201,168,76,0.1); }
+.diff-icon { font-size: 1.6rem; }
+.diff-name { font-size: 0.8rem; font-weight: 700; color: #fff; text-transform: uppercase; }
+.diff-desc { font-size: 0.6rem; color: rgba(255,255,255,0.45); text-align: center; }
 
-.diff-icon { font-size: 2rem; }
-.diff-name {
-  font-size: 0.85rem;
-  font-weight: 700;
-  color: #fff;
-  letter-spacing: 1px;
-  text-transform: uppercase;
+/* ── LOBBY ROOM OVERLAY ── */
+#lobbyOverlay {
+  position: absolute; inset: 0;
+  background: radial-gradient(ellipse at center, #1a4a2e 0%, #0e1f15 100%);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 16px; z-index: 410; border-radius: 16px;
 }
-.diff-desc {
-  font-size: 0.62rem;
-  color: rgba(255,255,255,0.45);
-  text-align: center;
-  line-height: 1.5;
+#lobbyOverlay.hidden { display: none; }
+.lobby-slots { display: flex; flex-direction: column; gap: 8px; width: min(90%, 320px); }
+.lobby-slot {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 16px; background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px; color: #fff; font-size: 0.8rem;
 }
-.diff-stars { font-size: 0.75rem; letter-spacing: 2px; }
-
-.diff-btn.easy:hover  { border-color: #2ecc71; background: rgba(46,204,113,0.1); }
-.diff-btn.medium:hover { border-color: #f39c12; background: rgba(243,156,18,0.1); }
-.diff-btn.hard:hover  { border-color: #e74c3c; background: rgba(231,76,60,0.1); }
-
-.diff-easy   { color: #2ecc71; }
-.diff-medium { color: #f39c12; }
-.diff-hard   { color: #e74c3c; }
+.lobby-slot.is-host { border-color: var(--gold); }
 </style>
 </head>
 <body>
 
 <div id="gameTable">
-  <!-- DIFFICULTY SCREEN -->
-  <div id="diffOverlay">
-    <div class="diff-cards-deco">
-      <div class="diff-card-deco red"><div>A</div><div>♥</div></div>
-      <div class="diff-card-deco"><div>K</div><div>♠</div></div>
-      <div class="diff-card-deco red"><div>3</div><div>♦</div></div>
-      <div class="diff-card-deco"><div>2</div><div>♣</div></div>
+  <!-- MAIN MENU OVERLAY -->
+  <div id="menuOverlay">
+    <div id="menuTitle">♠ REMI ONLINE ♥</div>
+    
+    <!-- Hidden Supabase Config Form (Sudah di-hardcode) -->
+    <div class="menu-card" style="display:none;">
+      <h3>1. Konfigurasi Supabase (Online)</h3>
+      <input type="text" id="cfgUrl" class="menu-input">
+      <input type="password" id="cfgKey" class="menu-input">
+      <button class="btn btn-play" onclick="saveSupabaseConfig()">Simpan & Hubungkan</button>
     </div>
-    <div id="diffTitle">♠ REMI ♥</div>
-    <div id="diffSubtitle">Pilih Tingkat Kesulitan</div>
 
+    <!-- Mode Selection -->
+    <div class="menu-card">
+      <h3>Profil & Mode Main</h3>
+      <input type="text" id="cfgName" class="menu-input" style="margin-bottom:8px;" placeholder="Nama Pemain Anda">
+      <div id="connStatus" style="font-size:0.65rem; color:#2ecc71; margin-bottom:8px;">✅ Supabase Terhubung!</div>
+
+      <div class="menu-btn-group">
+        <button class="btn btn-play" onclick="selectOfflineMode()">🤖 Offline vs AI</button>
+      </div>
+      <hr style="border:0; border-top:1px solid rgba(255,255,255,0.1); margin:8px 0;">
+      <div style="display:flex; flex-direction:column; gap:6px;">
+        <button class="btn btn-bomb" id="btnCreateRoom" onclick="createOnlineRoom()">➕ Buat Room Baru</button>
+        <div style="display:flex; gap:4px;">
+          <input type="text" id="inputRoomCode" class="menu-input" style="flex:1" placeholder="Kode Room">
+          <button class="btn btn-rem" id="btnJoinRoom" onclick="joinOnlineRoom()">🚀 Join</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- LOBBY OVERLAY (Online) -->
+  <div id="lobbyOverlay" class="hidden">
+    <h2 style="font-family:'Playfair Display'; color:var(--gold)">ROOM LOBBY</h2>
+    <div style="font-size:0.8rem; color:#fff">Kode Room: <b id="lobbyCodeDisplay" style="color:var(--gold-light)">-</b></div>
+    <div class="lobby-slots" id="lobbySlots">
+      <!-- Player slots inserted via JS -->
+    </div>
+    <div style="font-size:0.65rem; color:rgba(255,255,255,0.5)">Slot kosong otomatis diisi Bot saat game dimulai.</div>
+    <div class="menu-btn-group">
+      <button class="btn btn-pass" onclick="leaveLobby()">Keluar Room</button>
+      <button class="btn btn-play" id="btnStartOnline" onclick="startOnlineGame()" style="display:none">Mulai Game!</button>
+    </div>
+  </div>
+
+  <!-- DIFFICULTY SCREEN (Offline) -->
+  <div id="diffOverlay" class="hidden">
+    <div id="diffTitle">♠ REMI OFFLINE ♥</div>
+    <div id="diffSubtitle">Pilih Tingkat Kesulitan AI</div>
     <div class="diff-options">
-      <button class="diff-btn easy" onclick="startGame('easy')">
+      <button class="diff-btn" onclick="startGameOffline('easy')">
         <div class="diff-icon">🟢</div>
-        <div class="diff-name diff-easy">Easy</div>
-        <div class="diff-stars">⭐☆☆</div>
-        <div class="diff-desc">AI main random,<br>cocok untuk belajar</div>
+        <div class="diff-name" style="color:#2ecc71">Easy</div>
+        <div class="diff-desc">AI santai & acak</div>
       </button>
-      <button class="diff-btn medium" onclick="startGame('medium')">
+      <button class="diff-btn" onclick="startGameOffline('medium')">
         <div class="diff-icon">🟡</div>
-        <div class="diff-name diff-medium">Medium</div>
-        <div class="diff-stars">⭐⭐☆</div>
-        <div class="diff-desc">AI mulai strategis,<br>baca situasi lawan</div>
+        <div class="diff-name" style="color:#f39c12">Medium</div>
+        <div class="diff-desc">AI strategis</div>
       </button>
-      <button class="diff-btn hard" onclick="startGame('hard')">
+      <button class="diff-btn" onclick="startGameOffline('hard')">
         <div class="diff-icon">🔴</div>
-        <div class="diff-name diff-hard">Hard</div>
-        <div class="diff-stars">⭐⭐⭐</div>
-        <div class="diff-desc">AI agresif & cerdas,<br>susah dikalahkan</div>
+        <div class="diff-name" style="color:#e74c3c">Hard</div>
+        <div class="diff-desc">AI sangat agresif</div>
       </button>
     </div>
+    <button class="btn btn-pass" onclick="showMainMenu()" style="margin-top:10px">Kembali ke Menu</button>
   </div>
 
   <div id="gameTitle">♠ REMI ♥ <span id="diffLabel" style="font-size:0.5rem;opacity:0.5;letter-spacing:2px"></span></div>
 
-  <!-- NEW GAME BTN -->
-  <button class="btn btn-new" id="btnNewGame" onclick="showDiffScreen()">🔄 Baru</button>
+  <button class="btn btn-new" id="btnNewGame" onclick="showMainMenu()">🏠 Menu</button>
   <button class="btn btn-new" id="btnRules" onclick="toggleRules()">📖 Aturan</button>
-
 
   <!-- RULES OVERLAY -->
   <div id="rulesOverlay">
@@ -966,7 +449,6 @@ body {
         <button id="rulesClose" onclick="toggleRules()">✕ Tutup</button>
       </div>
       <div id="rulesBody">
-
         <div class="rule-section">
           <h4>🎯 Dasar</h4>
           <ul>
@@ -976,99 +458,14 @@ body {
             <li>Pemain dengan <span class="hl">3♦</span> wajib membuka dengan kartu itu (single)</li>
           </ul>
         </div>
-
         <div class="rule-section">
-          <h4>🔢 Urutan Nilai Kartu</h4>
-          <div class="rank-row">
-            <span class="rcard">3</span>
-            <span style="color:rgba(255,255,255,0.3)">‹</span>
-            <span class="rcard">4</span>
-            <span style="color:rgba(255,255,255,0.3)">‹</span>
-            <span class="rcard">5</span>
-            <span style="color:rgba(255,255,255,0.3)">‹</span>
-            <span class="rcard">6</span>
-            <span style="color:rgba(255,255,255,0.3)">‹</span>
-            <span class="rcard">7</span>
-            <span style="color:rgba(255,255,255,0.3)">‹</span>
-            <span class="rcard">8</span>
-            <span style="color:rgba(255,255,255,0.3)">‹</span>
-            <span class="rcard">9</span>
-            <span style="color:rgba(255,255,255,0.3)">‹</span>
-            <span class="rcard">10</span>
-            <span style="color:rgba(255,255,255,0.3)">‹</span>
-            <span class="rcard">J</span>
-            <span style="color:rgba(255,255,255,0.3)">‹</span>
-            <span class="rcard">Q</span>
-            <span style="color:rgba(255,255,255,0.3)">‹</span>
-            <span class="rcard">K</span>
-            <span style="color:rgba(255,255,255,0.3)">‹</span>
-            <span class="rcard">A</span>
-            <span style="color:rgba(255,255,255,0.3)">‹</span>
-            <span class="rcard" style="color:#e67e22;border-color:#e67e22">2 ★</span>
-          </div>
-          <p style="margin-top:4px">Urutan jenis (kecil → besar):</p>
-          <div class="suit-row">
-            <div class="suit-item"><span class="rcard red">♦</span> Diamond</div>
-            <span style="color:rgba(255,255,255,0.3)">‹</span>
-            <div class="suit-item"><span class="rcard">♣</span> Keriting</div>
-            <span style="color:rgba(255,255,255,0.3)">‹</span>
-            <div class="suit-item"><span class="rcard red">♥</span> Love</div>
-            <span style="color:rgba(255,255,255,0.3)">‹</span>
-            <div class="suit-item"><span class="rcard">♠</span> Sekop</div>
-          </div>
-        </div>
-
-        <div class="rule-section">
-          <h4>▶ Mode Single</h4>
+          <h4>▶ Mode Single & Kombinasi</h4>
           <ul>
-            <li>Pemain berikutnya harus buang kartu <span class="hl">suit sama</span> dan <span class="hl">nilai lebih besar</span></li>
-            <li>Jika tidak bisa → boleh <span class="hl">PASS</span></li>
-            <li>Jika semua PASS → pemain terakhir yang buang kartu <span class="good">menang ronde</span></li>
-            <li>Pemenang ronde bebas pilih: lanjut single atau kombinasi</li>
+            <li>Single: Lawan suit sama & lebih besar.</li>
+            <li>REM (2): Memotong ronde single (bisa REM beruntun jika punya banyak kartu 2).</li>
+            <li>BOM: Counter REM (Quartet / Straight Flush). Poin: Pemain yang pernah REM TIDAK BISA menggunakan BOM.</li>
           </ul>
         </div>
-
-        <div class="rule-section">
-          <h4>🧩 Kombinasi</h4>
-          <ul>
-            <li><span class="hl">Tris</span> — 3 kartu angka sama. Contoh: 7♦ 7♥ 7♣</li>
-            <li><span class="hl">Seri (Straight)</span> — min 3 kartu berurutan, beda jenis boleh. Dibandingkan dari kartu terakhir (tertinggi)</li>
-            <li><span class="hl">Seri Flush</span> — seri 1 jenis. Hanya bisa dilawan seri flush juga</li>
-            <li><span class="hl">Full House</span> — 3 kartu sama + 2 kartu pasangan. Tris harus lebih besar dari pair</li>
-            <li><span class="danger">Kartu 2 tidak boleh masuk seri</span></li>
-            <li>Harus dilawan kombinasi <span class="hl">jenis sama</span> yang lebih besar</li>
-          </ul>
-        </div>
-
-        <div class="rule-section">
-          <h4>💣 REM (Kartu 2)</h4>
-          <ul>
-            <li>Gunakan kartu <span class="hl">2</span> saat mode Single untuk <span class="good">memotong ronde</span></li>
-            <li>Tidak perlu ikut suit — langsung menang ronde</li>
-            <li><span class="danger">Tidak bisa REM saat mode kombinasi</span></li>
-          </ul>
-        </div>
-
-        <div class="rule-section">
-          <h4>💥 BOM (Counter REM)</h4>
-          <ul>
-            <li>Hanya bisa saat ada REM aktif</li>
-            <li>Jenis BOM: <span class="hl">Quartet</span> (4 kartu sama angka) atau <span class="hl">Straight Flush</span> (min 5 kartu seri 1 jenis)</li>
-            <li>Pemain yang BOM langsung <span class="good">menang game!</span></li>
-            <li><span class="danger">Jika skip BOM pertama → tidak bisa BOM di REM berikutnya</span></li>
-            <li><span class="danger">Jika pernah REM → tidak bisa pakai BOM</span></li>
-          </ul>
-        </div>
-
-        <div class="rule-section">
-          <h4>🏁 Akhir Game</h4>
-          <ul>
-            <li>Siapa yang habis kartu duluan = <span class="good">Juara 1</span></li>
-            <li>Ranking 2–4 ditentukan dari <span class="hl">jumlah kartu sisa</span> (paling sedikit = lebih baik)</li>
-            <li>Tiebreaker: kartu tertinggi lebih kecil = ranking lebih baik</li>
-          </ul>
-        </div>
-
       </div>
     </div>
   </div>
@@ -1080,7 +477,7 @@ body {
     <div id="logScroll"></div>
   </div>
 
-  <!-- TOP PLAYER (pid 1) -->
+  <!-- PLAYER ZONES -->
   <div class="player-zone pzone-top" id="pzone1">
     <div class="nameplate" id="np1">
       <div class="avatar" id="av1">P1</div>
@@ -1093,7 +490,6 @@ body {
     <div class="bot-cards" id="bcards1"></div>
   </div>
 
-  <!-- LEFT PLAYER (pid 2) -->
   <div class="player-zone pzone-left" id="pzone2">
     <div class="nameplate" id="np2">
       <div class="avatar" id="av2">P2</div>
@@ -1106,7 +502,6 @@ body {
     <div class="bot-cards" id="bcards2"></div>
   </div>
 
-  <!-- RIGHT PLAYER (pid 3) -->
   <div class="player-zone pzone-right" id="pzone3">
     <div class="nameplate" id="np3">
       <div class="avatar" id="av3">P3</div>
@@ -1128,9 +523,8 @@ body {
     <div id="statusStrip"></div>
   </div>
 
-  <!-- BOTTOM: HUMAN -->
+  <!-- BOTTOM: LOCAL PLAYER -->
   <div id="handArea">
-    <!-- Sort buttons + player info -->
     <div style="display:flex;align-items:center;gap:8px;width:100%;justify-content:space-between;padding:0 8px;">
       <div class="nameplate" id="np0" style="background:transparent;border:none;padding:0;">
         <div class="avatar" id="av0" style="background:rgba(74,158,255,0.2);color:#4a9eff;">🧑</div>
@@ -1148,16 +542,14 @@ body {
       </div>
     </div>
 
-    <!-- Hand cards (draggable to reorder) -->
     <div id="handCardsWrap"></div>
 
-    <!-- Actions -->
     <div id="actionsBar">
-      <button class="btn btn-icon btn-play" id="btnPlay" onclick="humanPlay()" title="Main" aria-label="Main">▶</button>
-      <button class="btn btn-icon btn-pass" id="btnPass" onclick="humanPass()" title="Pass" aria-label="Pass">⏭</button>
-      <button class="btn btn-icon btn-rem" id="btnRem" onclick="humanRem()" title="REM" aria-label="REM">💣</button>
-      <button class="btn btn-icon btn-bomb" id="btnBomb" onclick="humanBomb()" title="BOM" aria-label="BOM">💥</button>
-      <button class="btn btn-icon btn-skip" id="btnSkipBomb" onclick="humanSkipBomb()" title="Skip Bom" aria-label="Skip Bom" style="display:none">❌</button>
+      <button class="btn btn-icon btn-play" id="btnPlay" onclick="humanPlay()" title="Main">▶</button>
+      <button class="btn btn-icon btn-pass" id="btnPass" onclick="humanPass()" title="Pass">⏭</button>
+      <button class="btn btn-icon btn-rem" id="btnRem" onclick="humanRem()" title="REM">💣</button>
+      <button class="btn btn-icon btn-bomb" id="btnBomb" onclick="humanBomb()" title="BOM">💥</button>
+      <button class="btn btn-icon btn-skip" id="btnSkipBomb" onclick="humanSkipBomb()" title="Skip Bom" style="display:none">❌</button>
       <span class="selected-info" id="selInfo"></span>
     </div>
     <div id="hintBar"></div>
@@ -1168,34 +560,260 @@ body {
     <h2>GAME SELESAI</h2>
     <div class="result-list" id="resultList"></div>
     <div style="display:flex;gap:10px;margin-top:4px">
-      <button class="btn-newgame" onclick="showDiffScreen()">Main Lagi</button>
+      <button class="btn-newgame" onclick="showMainMenu()">Kembali Ke Menu</button>
       <button class="btn-newgame" onclick="toggleLog()" style="background:rgba(255,255,255,0.12);color:#fff;border:1px solid rgba(255,255,255,0.2)">📋 Lihat Log</button>
     </div>
   </div>
 
-  <!-- TOAST -->
   <div id="toast"></div>
 </div>
 
 <script>
 // ═══════════════════════════════════════════════════════
-// CONSTANTS
+// CONSTANTS & GAME SETUP
 // ═══════════════════════════════════════════════════════
 const SUITS = ['♦','♣','♥','♠'];
 const RANKS = ['3','4','5','6','7','8','9','10','J','Q','K','A','2'];
-const PLAYER_NAMES = ['Saya','Pemain 1','Pemain 2','Pemain 3'];
+let PLAYER_NAMES = ['Saya','Pemain 1','Pemain 2','Pemain 3'];
 const COLORS = ['#4a9eff','#e74c3c','#2ecc71','#f39c12'];
-const AVATARS = ['🧑','👾','🤖','👻'];
 
-// ═══════════════════════════════════════════════════════
-// GAME STATE
-// ═══════════════════════════════════════════════════════
+let IS_ONLINE = false;
+let IS_HOST = false;
+let MY_PID = 0; // Local player seat index (0, 1, 2, 3)
+let supabaseClient = null;
+let roomChannel = null;
+let currentRoomCode = '';
+let lobbyPlayers = [];
+let DIFFICULTY = 'medium';
+
 let G = {};
-let selected = [];    // indices into G.hands[0] (current visual order)
-let handOrder = [];   // visual order of human hand (indices into original dealt hand)
+let selected = [];
+let handOrder = [];
 let dragSrcIdx = null;
 
-function newGame() {
+// HARDCODED CREDENTIALS
+const DEFAULT_URL = 'https://gfzyunrzobnonufgzumu.supabase.co';
+const DEFAULT_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdmenl1bnJ6b2Jub251Zmd6dW11Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc3OTk3MzcsImV4cCI6MjEwMzM3NTczN30.IxVAclToBMIJizkDi3HKtoMSKddRzyHE6kmcrXfhJtQ';
+
+window.addEventListener('DOMContentLoaded', () => {
+  const url = localStorage.getItem('remi_sp_url') || DEFAULT_URL;
+  const key = localStorage.getItem('remi_sp_key') || DEFAULT_KEY;
+  const name = localStorage.getItem('remi_sp_name') || 'Pemain ' + Math.floor(100 + Math.random() * 900);
+
+  document.getElementById('cfgUrl').value = url;
+  document.getElementById('cfgKey').value = key;
+  document.getElementById('cfgName').value = name;
+
+  initSupabase();
+});
+
+function saveSupabaseConfig() {
+  const url = document.getElementById('cfgUrl').value.trim() || DEFAULT_URL;
+  const key = document.getElementById('cfgKey').value.trim() || DEFAULT_KEY;
+  const name = document.getElementById('cfgName').value.trim() || 'Pemain';
+  
+  localStorage.setItem('remi_sp_url', url);
+  localStorage.setItem('remi_sp_key', key);
+  localStorage.setItem('remi_sp_name', name);
+  initSupabase();
+}
+
+function initSupabase() {
+  const url = localStorage.getItem('remi_sp_url') || DEFAULT_URL;
+  const key = localStorage.getItem('remi_sp_key') || DEFAULT_KEY;
+  try {
+    supabaseClient = window.supabase.createClient(url, key);
+    document.getElementById('connStatus').textContent = '✅ Supabase Terhubung!';
+    document.getElementById('connStatus').style.color = '#2ecc71';
+    document.getElementById('btnCreateRoom').disabled = false;
+    document.getElementById('btnJoinRoom').disabled = false;
+  } catch(e) {
+    document.getElementById('connStatus').textContent = '❌ Gagal Terhubung';
+    document.getElementById('connStatus').style.color = '#e74c3c';
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// MULTIPLAYER ROOM & LOBBY LOGIC
+// ═══════════════════════════════════════════════════════
+function createOnlineRoom() {
+  currentRoomCode = Math.floor(1000 + Math.random() * 9000).toString();
+  IS_HOST = true;
+  MY_PID = 0;
+  joinRoomChannel(currentRoomCode);
+}
+
+function joinOnlineRoom() {
+  const code = document.getElementById('inputRoomCode').value.trim();
+  if(!code) { toast('Masukkan Kode Room!','err'); return; }
+  currentRoomCode = code;
+  IS_HOST = false;
+  joinRoomChannel(currentRoomCode);
+}
+
+function joinRoomChannel(code) {
+  IS_ONLINE = true;
+  const myName = document.getElementById('cfgName').value.trim() || 'Pemain';
+  localStorage.setItem('remi_sp_name', myName);
+  
+  document.getElementById('menuOverlay').classList.add('hidden');
+  document.getElementById('lobbyOverlay').classList.remove('hidden');
+  document.getElementById('lobbyCodeDisplay').textContent = code;
+
+  roomChannel = supabaseClient.channel(`remi_room_${code}`, {
+    config: { presence: { key: myName } }
+  });
+
+  roomChannel
+    .on('presence', { event: 'sync' }, () => {
+      const state = roomChannel.presenceState();
+      updateLobbyUI(state);
+    })
+    .on('broadcast', { event: 'game_state' }, ({ payload }) => {
+      syncGameStateFromHost(payload);
+    })
+    .on('broadcast', { event: 'player_action' }, ({ payload }) => {
+      if(IS_HOST) handleClientActionAsHost(payload);
+    })
+    .on('broadcast', { event: 'host_left' }, () => {
+      toast('Host keluar. Room dibubarkan.','err');
+      leaveLobby();
+    })
+    .subscribe(async (status) => {
+      if (status === 'SUBSCRIBED') {
+        await roomChannel.track({
+          name: myName,
+          isHost: IS_HOST,
+          joinedAt: Date.now()
+        });
+      }
+    });
+}
+
+function updateLobbyUI(state) {
+  lobbyPlayers = [];
+  Object.keys(state).forEach(key => {
+    const presence = state[key][0];
+    lobbyPlayers.push(presence);
+  });
+  
+  lobbyPlayers.sort((a,b) => a.joinedAt - b.joinedAt);
+
+  const myName = document.getElementById('cfgName').value.trim();
+  const myIndex = lobbyPlayers.findIndex(p => p.name === myName);
+  if(myIndex !== -1) MY_PID = myIndex;
+
+  const container = document.getElementById('lobbySlots');
+  container.innerHTML = '';
+
+  for(let i = 0; i < 4; i++) {
+    const slot = document.createElement('div');
+    slot.className = 'lobby-slot';
+    if(lobbyPlayers[i]) {
+      slot.innerHTML = `<span>${lobbyPlayers[i].isHost ? '👑 ' : ''}${lobbyPlayers[i].name}</span> <small style="color:#2ecc71">Siap</small>`;
+      if(lobbyPlayers[i].isHost) slot.classList.add('is-host');
+    } else {
+      slot.innerHTML = `<span style="opacity:0.4">Slot ${i+1}: (Bot AI)</span>`;
+    }
+    container.appendChild(slot);
+  }
+
+  document.getElementById('btnStartOnline').style.display = IS_HOST ? 'inline-block' : 'none';
+}
+
+function leaveLobby() {
+  if(roomChannel) {
+    if(IS_HOST) roomChannel.send({ type: 'broadcast', event: 'host_left', payload: {} });
+    roomChannel.unsubscribe();
+  }
+  IS_ONLINE = false;
+  IS_HOST = false;
+  document.getElementById('lobbyOverlay').classList.add('hidden');
+  showMainMenu();
+}
+
+function startOnlineGame() {
+  if(!IS_HOST) return;
+  PLAYER_NAMES = ['Bot 1','Bot 2','Bot 3','Bot 4'];
+  for(let i=0; i<4; i++) {
+    if(lobbyPlayers[i]) PLAYER_NAMES[i] = lobbyPlayers[i].name;
+    else PLAYER_NAMES[i] = `Bot ${i+1}`;
+  }
+
+  document.getElementById('lobbyOverlay').classList.add('hidden');
+  initNewGameData();
+  broadcastGameState();
+}
+
+function broadcastGameState() {
+  if(!IS_HOST || !roomChannel) return;
+  roomChannel.send({
+    type: 'broadcast',
+    event: 'game_state',
+    payload: { G, PLAYER_NAMES }
+  });
+}
+
+function syncGameStateFromHost(payload) {
+  G = payload.G;
+  PLAYER_NAMES = payload.PLAYER_NAMES;
+  
+  document.getElementById('lobbyOverlay').classList.add('hidden');
+  document.getElementById('diffOverlay').classList.add('hidden');
+  document.getElementById('gameOverlay').classList.remove('show');
+  
+  if(handOrder.length !== G.hands[MY_PID].length) {
+    handOrder = G.hands[MY_PID].map((_,i)=>i);
+  }
+
+  renderAll();
+  updateHint();
+}
+
+function sendActionToHost(actionType, data) {
+  if(IS_HOST) {
+    processAction(MY_PID, actionType, data);
+  } else {
+    roomChannel.send({
+      type: 'broadcast',
+      event: 'player_action',
+      payload: { pid: MY_PID, actionType, data }
+    });
+  }
+}
+
+function handleClientActionAsHost(payload) {
+  processAction(payload.pid, payload.actionType, payload.data);
+}
+
+// ═══════════════════════════════════════════════════════
+// GAME INITIALIZATION & MODES
+// ═══════════════════════════════════════════════════════
+function showMainMenu() {
+  document.getElementById('gameOverlay').classList.remove('show');
+  document.getElementById('diffOverlay').classList.add('hidden');
+  document.getElementById('lobbyOverlay').classList.add('hidden');
+  document.getElementById('menuOverlay').classList.remove('hidden');
+}
+
+function selectOfflineMode() {
+  IS_ONLINE = false;
+  IS_HOST = true;
+  MY_PID = 0;
+  PLAYER_NAMES = [document.getElementById('cfgName').value.trim() || 'Kamu', 'Bot 1', 'Bot 2', 'Bot 3'];
+  document.getElementById('menuOverlay').classList.add('hidden');
+  document.getElementById('diffOverlay').classList.remove('hidden');
+}
+
+function startGameOffline(diff) {
+  DIFFICULTY = diff;
+  document.getElementById('diffOverlay').classList.add('hidden');
+  const labels={'easy':'🟢 EASY','medium':'🟡 MEDIUM','hard':'🔴 HARD'};
+  document.getElementById('diffLabel').textContent = '· ' + labels[diff];
+  initNewGameData();
+}
+
+function initNewGameData() {
   document.getElementById('gameOverlay').classList.remove('show');
   const deck = [];
   for (const s of SUITS) for (const r of RANKS) deck.push({r,s});
@@ -1224,20 +842,29 @@ function newGame() {
   };
 
   selected = [];
-  handOrder = G.hands[0].map((_,i)=>i);
+  handOrder = G.hands[MY_PID].map((_,i)=>i);
 
   clearLog();
-  log('system','🎮 Game baru! 52 kartu dibagi.');
+  log('system','🎮 Game baru dimulai!');
   log('system',`▶ ${PLAYER_NAMES[G.turn]} punya 3♦ — mulai!`);
 
   renderAll();
   animateDealHand();
   updateHint();
-  if (G.turn !== 0) setTimeout(runAI, 900);
+
+  if (IS_HOST) {
+    if(IS_ONLINE) broadcastGameState();
+    if (isBot(G.turn)) setTimeout(runAI, 900);
+  }
+}
+
+function isBot(pid) {
+  if(!IS_ONLINE) return pid !== 0;
+  return !lobbyPlayers[pid];
 }
 
 // ═══════════════════════════════════════════════════════
-// CARD HELPERS
+// CARD HELPERS & COMBOS
 // ═══════════════════════════════════════════════════════
 const cardVal = c => RANKS.indexOf(c.r)*4 + SUITS.indexOf(c.s);
 const cardStr = c => c.r+c.s;
@@ -1246,9 +873,6 @@ const isRed = c => c.s==='♦'||c.s==='♥';
 const sortHand = h => h.sort((a,b)=>cardVal(a)-cardVal(b));
 function shuffle(a){ for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} }
 
-// ═══════════════════════════════════════════════════════
-// COMBINATION DETECTION
-// ═══════════════════════════════════════════════════════
 function detectCombo(cards) {
   if (!cards||cards.length===0) return {type:null,valid:false};
   if (cards.length===1) return {type:'single',valid:true};
@@ -1289,9 +913,6 @@ function checkFullHouse(cards) {
 
 function isQuartet(cards){ return cards.length===4&&cards.every(c=>c.r===cards[0].r); }
 
-// ═══════════════════════════════════════════════════════
-// COMPARISON
-// ═══════════════════════════════════════════════════════
 function canBeat(played,table,tableType) {
   if (played.length!==table.length) return false;
   const pt=detectCombo(played);
@@ -1323,91 +944,54 @@ function canBeat(played,table,tableType) {
 }
 
 // ═══════════════════════════════════════════════════════
-// SORT FUNCTIONS
+// SORT & DRAG
 // ═══════════════════════════════════════════════════════
-function sortByValue(){ handOrder=[...handOrder].sort((a,b)=>cardVal(G.hands[0][a])-cardVal(G.hands[0][b])); selected=[]; renderHand(); }
-function sortBySuit(){ handOrder=[...handOrder].sort((a,b)=>{ const ca=G.hands[0][a],cb=G.hands[0][b]; const sd=SUITS.indexOf(ca.s)-SUITS.indexOf(cb.s); return sd!==0?sd:RANKS.indexOf(ca.r)-RANKS.indexOf(cb.r); }); selected=[]; renderHand(); }
-function sortByRank(){ handOrder=[...handOrder].sort((a,b)=>{ const ca=G.hands[0][a],cb=G.hands[0][b]; const rd=RANKS.indexOf(ca.r)-RANKS.indexOf(cb.r); return rd!==0?rd:SUITS.indexOf(ca.s)-SUITS.indexOf(cb.s); }); selected=[]; renderHand(); }
+function sortByValue(){ handOrder=[...handOrder].sort((a,b)=>cardVal(G.hands[MY_PID][a])-cardVal(G.hands[MY_PID][b])); selected=[]; renderHand(); }
+function sortBySuit(){ handOrder=[...handOrder].sort((a,b)=>{ const ca=G.hands[MY_PID][a],cb=G.hands[MY_PID][b]; const sd=SUITS.indexOf(ca.s)-SUITS.indexOf(cb.s); return sd!==0?sd:RANKS.indexOf(ca.r)-RANKS.indexOf(cb.r); }); selected=[]; renderHand(); }
+function sortByRank(){ handOrder=[...handOrder].sort((a,b)=>{ const ca=G.hands[MY_PID][a],cb=G.hands[MY_PID][b]; const rd=RANKS.indexOf(ca.r)-RANKS.indexOf(cb.r); return rd!==0?rd:SUITS.indexOf(ca.s)-SUITS.indexOf(cb.s); }); selected=[]; renderHand(); }
 function clearSelection(){ selected=[]; renderHand(); updateHint(); }
 
-// ═══════════════════════════════════════════════════════
-// DRAG TO REORDER
-// ═══════════════════════════════════════════════════════
 function setupDrag(div, visualIdx) {
   div.draggable = true;
-
-  div.addEventListener('dragstart', e => {
-    dragSrcIdx = visualIdx;
-    div.classList.add('dragging');
-    e.dataTransfer.effectAllowed = 'move';
-  });
-
-  div.addEventListener('dragend', () => {
-    div.classList.remove('dragging');
-    document.querySelectorAll('.drag-over-left,.drag-over-right').forEach(el=>el.classList.remove('drag-over-left','drag-over-right'));
-  });
-
+  div.addEventListener('dragstart', e => { dragSrcIdx = visualIdx; div.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'; });
+  div.addEventListener('dragend', () => { div.classList.remove('dragging'); document.querySelectorAll('.drag-over-left,.drag-over-right').forEach(el=>el.classList.remove('drag-over-left','drag-over-right')); });
   div.addEventListener('dragover', e => {
     e.preventDefault();
     if (dragSrcIdx === null || dragSrcIdx === visualIdx) return;
     document.querySelectorAll('.drag-over-left,.drag-over-right').forEach(el=>el.classList.remove('drag-over-left','drag-over-right'));
     const rect = div.getBoundingClientRect();
-    const mid = rect.left + rect.width/2;
-    if (e.clientX < mid) div.classList.add('drag-over-left');
-    else div.classList.add('drag-over-right');
+    if (e.clientX < (rect.left + rect.width/2)) div.classList.add('drag-over-left'); else div.classList.add('drag-over-right');
   });
-
   div.addEventListener('drop', e => {
     e.preventDefault();
     if (dragSrcIdx === null || dragSrcIdx === visualIdx) return;
     const rect = div.getBoundingClientRect();
-    const mid = rect.left + rect.width/2;
-    let insertAt = visualIdx;
-    if (e.clientX >= mid) insertAt = visualIdx + 1;
-    // reorder handOrder
+    let insertAt = (e.clientX >= rect.left + rect.width/2) ? visualIdx + 1 : visualIdx;
     const moved = handOrder.splice(dragSrcIdx, 1)[0];
     if (dragSrcIdx < insertAt) insertAt--;
     handOrder.splice(insertAt, 0, moved);
-    // update selected indices
-    selected = selected.map(si => {
-      // si = index in handOrder pre-move
-      if (si === dragSrcIdx) return insertAt;
-      if (dragSrcIdx < insertAt) {
-        if (si > dragSrcIdx && si <= insertAt) return si-1;
-      } else {
-        if (si >= insertAt && si < dragSrcIdx) return si+1;
-      }
-      return si;
-    });
+    selected = [];
     dragSrcIdx = null;
-    renderHand();
-    updateHint();
+    renderHand(); updateHint();
   });
 }
 
-// ═══════════════════════════════════════════════════════
-// TOGGLE CARD SELECT
-// ═══════════════════════════════════════════════════════
 function toggleCard(visualIdx) {
-  if (G.finished.includes(0)) return;
-  // Only allow select when it's human turn OR bomb window open
-  if (G.turn !== 0 && !(G.remActive && !G.usedRem[0] && !G.skippedBomb[0])) return;
+  if (G.finished.includes(MY_PID)) return;
+  if (G.turn !== MY_PID && !(G.remActive && !G.usedRem[MY_PID] && !G.skippedBomb[MY_PID])) return;
   const i = selected.indexOf(visualIdx);
   if (i>=0) selected.splice(i,1); else selected.push(visualIdx);
   playSound('select'); vibrate(10);
-  renderHand();
-  updateHint();
+  renderHand(); updateHint();
 }
 
 // ═══════════════════════════════════════════════════════
-// HUMAN ACTIONS
+// USER ACTIONS & ROUTING
 // ═══════════════════════════════════════════════════════
-function getSelectedCards() {
-  return selected.map(vi => G.hands[0][handOrder[vi]]);
-}
+function getSelectedCards() { return selected.map(vi => G.hands[MY_PID][handOrder[vi]]); }
 
 function humanPlay() {
-  if (G.turn!==0) return;
+  if (G.turn!==MY_PID) return;
   const cards = getSelectedCards();
   if (!cards.length){ toast('Pilih kartu dulu!','err'); return; }
 
@@ -1419,18 +1003,16 @@ function humanPlay() {
     }
     const combo=detectCombo(cards);
     if (!combo.valid){ toast('Kombinasi tidak valid!','err'); return; }
-    playCards(0,cards); return;
+    sendActionToHost('PLAY', cards); return;
   }
 
   if (G.mode==='single'){
     if (cards.length!==1){ toast('Mode single — pilih 1 kartu!','err'); return; }
-    // Kartu 2 di single = REM otomatis
     if(cards[0].r==='2'){
-      if(G.usedRem[0]){ toast('Kamu sudah pernah REM!','err'); return; }
-      doRem(0,cards[0]); return;
+      sendActionToHost('REM', cards[0]); return;
     }
     if (!canBeat(cards,G.tableCards,'single')){ toast('Harus suit sama & lebih besar!','err'); return; }
-    playCards(0,cards); return;
+    sendActionToHost('PLAY', cards); return;
   }
 
   if (G.mode==='combo'){
@@ -1441,61 +1023,64 @@ function humanPlay() {
       toast('Harus lawan kombinasi jenis sama!','err'); return;
     }
     if (!canBeat(cards,G.tableCards,tc.type)){ toast('Kombinasi kurang besar!','err'); return; }
-    playCards(0,cards); return;
+    sendActionToHost('PLAY', cards); return;
   }
 
   if (G.mode==='free'){
     const combo=detectCombo(cards);
     if (!combo.valid){ toast('Kombinasi tidak valid!','err'); return; }
-    playCards(0,cards);
+    sendActionToHost('PLAY', cards);
   }
 }
 
 function humanPass() {
-  if (G.turn!==0) return;
-  if (G.remActive&&!G.skippedBomb[0]&&!G.usedRem[0]){ humanSkipBomb(); return; }
-  doPass(0);
+  if (G.turn!==MY_PID) return;
+  if (G.remActive&&!G.skippedBomb[MY_PID]&&!G.usedRem[MY_PID]){ humanSkipBomb(); return; }
+  sendActionToHost('PASS', null);
 }
 
 function humanRem() {
-  if (G.turn!==0) return;
+  if (G.turn!==MY_PID) return;
   if (G.mode!=='single'){ toast('REM hanya di mode single!','err'); return; }
   if (!G.tableCards.length){ toast('Meja kosong, tidak perlu REM!','err'); return; }
-  const remCards = selected.filter(vi=>G.hands[0][handOrder[vi]].r==='2');
+  const remCards = selected.filter(vi=>G.hands[MY_PID][handOrder[vi]].r==='2');
   if (!remCards.length){ toast('Pilih kartu 2 untuk REM!','err'); return; }
-  doRem(0, G.hands[0][handOrder[remCards[0]]]);
+  sendActionToHost('REM', G.hands[MY_PID][handOrder[remCards[0]]]);
 }
 
 function humanBomb() {
   if (!G.remActive){ toast('BOM hanya saat ada REM aktif!','err'); return; }
-  if (G.finished.includes(0)) return;
-  if (G.usedRem[0]){ toast('Pernah REM — tidak bisa BOM!','err'); return; }
-  if (G.skippedBomb[0]){ toast('Sudah skip BOM di ronde ini!','err'); return; }
-  const bomb=findBomb(G.hands[0]);
+  if (G.finished.includes(MY_PID)) return;
+  if (G.usedRem[MY_PID]){ toast('Pernah REM — tidak bisa BOM!','err'); return; }
+  if (G.skippedBomb[MY_PID]){ toast('Sudah skip BOM di ronde ini!','err'); return; }
+  const bomb=findBomb(G.hands[MY_PID]);
   if (!bomb){ toast('Tidak punya kartu BOM!','err'); return; }
-  doBomb(0,bomb);
+  sendActionToHost('BOMB', bomb);
 }
 
 function humanSkipBomb() {
-  if (!G.remActive||G.finished.includes(0)) return;
-  G.skippedBomb[0]=true;
-  log('info','ℹ️ Kamu skip BOM.');
-  const order=getOrderFrom(G.remPlayer).filter(p=>p!==G.remPlayer&&!G.finished.includes(p));
-  const humanIdx=order.indexOf(0);
-  const remaining=order.slice(humanIdx+1);
-  let anyBombed=false;
-  for (const pid of remaining){
-    if (G.usedRem[pid]||G.skippedBomb[pid]) continue;
-    const bomb=findBomb(G.hands[pid]);
-    const bThresh1=DIFFICULTY==='hard'?0.1:DIFFICULTY==='medium'?0.35:0.6;
-    if(bomb&&Math.random()>bThresh1){ setTimeout(()=>doBomb(pid,bomb),600); anyBombed=true; break; }
-    else { G.skippedBomb[pid]=true; log('info',`ℹ️ ${PLAYER_NAMES[pid]} skip BOM.`); }
+  if (!G.remActive||G.finished.includes(MY_PID)) return;
+  sendActionToHost('SKIP_BOMB', null);
+}
+
+function processAction(pid, actionType, data) {
+  if(!IS_HOST) return;
+
+  if(actionType === 'PLAY') playCards(pid, data);
+  else if(actionType === 'PASS') doPass(pid);
+  else if(actionType === 'REM') doRem(pid, data);
+  else if(actionType === 'BOMB') doBomb(pid, data);
+  else if(actionType === 'SKIP_BOMB') {
+    G.skippedBomb[pid] = true;
+    log('info', `ℹ️ ${PLAYER_NAMES[pid]} skip BOM.`);
+    checkBombWindowNext(pid);
   }
-  if (!anyBombed) winRound(G.remPlayer);
+
+  if(IS_ONLINE) broadcastGameState();
 }
 
 // ═══════════════════════════════════════════════════════
-// GAME LOGIC
+// GAME LOGIC ENGINE (Authoritative on Host)
 // ═══════════════════════════════════════════════════════
 function playCards(pid, cards) {
   const combo=detectCombo(cards);
@@ -1503,11 +1088,9 @@ function playCards(pid, cards) {
     const idx=G.hands[pid].findIndex(x=>x.r===c.r&&x.s===c.s);
     if (idx>=0){
       G.hands[pid].splice(idx,1);
-      // update handOrder for human
-      if (pid===0){
+      if (pid===MY_PID){
         const vi=handOrder.indexOf(idx);
         if (vi>=0) handOrder.splice(vi,1);
-        // re-map indices > idx
         handOrder=handOrder.map(i=>i>idx?i-1:i);
       }
     }
@@ -1532,7 +1115,7 @@ function playCards(pid, cards) {
 
 function doPass(pid){
   log('pass',`${PLAYER_NAMES[pid]} — PASS`);
-  if(pid===0){ playSound('pass'); vibrate(8); }
+  if(pid===MY_PID){ playSound('pass'); vibrate(8); }
   G.passCount++;
   const active=[0,1,2,3].filter(i=>!G.finished.includes(i));
   const others=active.filter(i=>i!==G.tablePlayer);
@@ -1547,13 +1130,16 @@ function doPass(pid){
 function doRem(pid,card){
   const idx=G.hands[pid].findIndex(x=>x.r===card.r&&x.s===card.s);
   G.hands[pid].splice(idx,1);
-  if (pid===0){
+  if (pid===MY_PID){
     const vi=handOrder.indexOf(idx);
     if (vi>=0) handOrder.splice(vi,1);
     handOrder=handOrder.map(i=>i>idx?i-1:i);
     selected=[];
   }
-  G.usedRem[pid]=true; G.remActive=true; G.remPlayer=pid;
+  G.usedRem[pid]=true; 
+  G.skippedBomb = [false, false, false, false];
+  
+  G.remActive=true; G.remPlayer=pid;
   G.tableCards=[card]; G.tablePlayer=pid; G.bombOpportunity=true; G.passCount=0;
   G.roundStacks.push({pid, cards:[card], type:'rem'});
   log('rem',`💣 ${PLAYER_NAMES[pid]} REM! ${cardStr(card)}`);
@@ -1566,49 +1152,47 @@ function doRem(pid,card){
 
 function checkBombWindow(remPid){
   const order=getOrderFrom(remPid).filter(p=>p!==remPid&&!G.finished.includes(p));
-  const humanCanBomb=order.includes(0)&&!G.usedRem[0]&&!G.skippedBomb[0]&&!G.finished.includes(0);
+  processBombOrder(order, 0);
+}
 
-  // Process AI players that come BEFORE human in order
-  for (const pid of order){
-    if (pid===0) break; // stop, human's turn next
-    if (G.usedRem[pid]||G.skippedBomb[pid]) continue;
-    const bomb=findBomb(G.hands[pid]);
-    const bThresh2=DIFFICULTY==='hard'?0.1:DIFFICULTY==='medium'?0.35:0.6;
-    if(bomb&&Math.random()>bThresh2){
-      // AI bombs — delay slightly so log is visible
-      setTimeout(()=>doBomb(pid,bomb),600);
-      return; // done, no bomb window for human
-    } else {
-      G.skippedBomb[pid]=true;
-      log('info',`ℹ️ ${PLAYER_NAMES[pid]} skip BOM.`);
-    }
+function checkBombWindowNext(currentPid) {
+  const order=getOrderFrom(G.remPlayer).filter(p=>p!==G.remPlayer&&!G.finished.includes(p));
+  const idx = order.indexOf(currentPid);
+  if(idx !== -1 && idx < order.length - 1) {
+    processBombOrder(order, idx + 1);
+  } else {
+    winRound(G.remPlayer);
   }
+}
 
-  if (humanCanBomb){
-    // Human gets bomb window — set turn to human & render so buttons activate
-    G.turn=0;
-    // Use setTimeout to ensure DOM is updated after doRem's render
-    setTimeout(()=>{ renderAll(); updateHint(); }, 50);
+function processBombOrder(order, stepIdx) {
+  if(stepIdx >= order.length) {
+    winRound(G.remPlayer);
     return;
   }
 
-  // Human can't bomb — process remaining AI after human
-  let anyBombed=false;
-  for (const pid of order){
-    if (pid===0) continue;
-    if (G.usedRem[pid]||G.skippedBomb[pid]) continue;
-    const bomb=findBomb(G.hands[pid]);
-    const bThresh3=DIFFICULTY==='hard'?0.1:DIFFICULTY==='medium'?0.35:0.6;
-    if(bomb&&Math.random()>bThresh3){
-      setTimeout(()=>doBomb(pid,bomb),600);
-      anyBombed=true;
-      break;
-    } else {
-      G.skippedBomb[pid]=true;
-      log('info',`ℹ️ ${PLAYER_NAMES[pid]} skip BOM.`);
-    }
+  const pid = order[stepIdx];
+  if (G.usedRem[pid] || G.skippedBomb[pid]) {
+    processBombOrder(order, stepIdx + 1);
+    return;
   }
-  if (!anyBombed) setTimeout(()=>winRound(remPid), 100);
+
+  if (isBot(pid)) {
+    const bomb = findBomb(G.hands[pid]);
+    const bThresh = DIFFICULTY==='hard'?0.1:DIFFICULTY==='medium'?0.35:0.6;
+    if (bomb && Math.random() > bThresh) {
+      setTimeout(()=>doBomb(pid, bomb), 600);
+    } else {
+      G.skippedBomb[pid] = true;
+      log('info', `ℹ️ ${PLAYER_NAMES[pid]} skip BOM.`);
+      processBombOrder(order, stepIdx + 1);
+    }
+  } else {
+    G.turn = pid;
+    renderAll();
+    updateHint();
+    if(IS_ONLINE) broadcastGameState();
+  }
 }
 
 function doBomb(pid,bomb){
@@ -1651,14 +1235,14 @@ function winRound(pid){
   log('win',`🏆 ${PLAYER_NAMES[pid]} menang ronde!`);
   playSound('win'); vibrate([20,10,20]);
   animateWinNameplate(pid);
-  G.tableCards=[]; G.tablePlayer=-1; G.passCount=0;
-  G.roundStacks=[];
+  G.tableCards=[]; G.tablePlayer=-1; G.passCount=0; G.roundStacks=[];
   G.mode='free'; G.comboType=null; G.remActive=false; G.bombOpportunity=false;
   G.turn=pid;
   if (G.finished.includes(pid)){ nextActivePlayer(pid); return; }
   log('system',`▶ ${PLAYER_NAMES[pid]} bebas main`);
   renderAll(); updateHint();
-  if (pid!==0) setTimeout(runAI,900);
+  if(IS_ONLINE) broadcastGameState();
+  if (IS_HOST && isBot(pid)) setTimeout(runAI,900);
 }
 
 function nextTurn(fromPid){
@@ -1666,7 +1250,8 @@ function nextTurn(fromPid){
   const next=getNextActive(fromPid);
   if (next===-1){ endGame(); return; }
   G.turn=next; renderAll(); updateHint();
-  if (next!==0) setTimeout(runAI,700);
+  if(IS_ONLINE && IS_HOST) broadcastGameState();
+  if (IS_HOST && isBot(next)) setTimeout(runAI,700);
 }
 
 function nextActivePlayer(pid){
@@ -1674,7 +1259,8 @@ function nextActivePlayer(pid){
   const next=getNextActive(pid);
   if (next===-1){ endGame(); return; }
   G.turn=next; renderAll(); updateHint();
-  if (next!==0) setTimeout(runAI,900);
+  if(IS_ONLINE && IS_HOST) broadcastGameState();
+  if (IS_HOST && isBot(next)) setTimeout(runAI,900);
 }
 
 function getNextActive(fromPid){
@@ -1693,13 +1279,9 @@ function getOrderFrom(pid){
 
 function endGame(){
   const remaining=[0,1,2,3].filter(p=>!G.finished.includes(p));
-  // Sort: paling banyak kartu = ranking paling akhir
-  // Tiebreaker: kartu tertinggi lebih besar = ranking lebih buruk
   remaining.sort((a,b)=>{
-    // Sedikit kartu = peringkat lebih baik (ascending)
     const lenDiff=G.hands[a].length-G.hands[b].length;
     if(lenDiff!==0) return lenDiff;
-    // Tiebreaker: kartu tertinggi lebih kecil = lebih baik (ascending)
     const maxVal=hand=>hand.length?Math.max(...hand.map(x=>cardVal(x))):0;
     return maxVal(G.hands[a])-maxVal(G.hands[b]);
   });
@@ -1707,6 +1289,7 @@ function endGame(){
   G.isGameOver=true;
   log('system','🎮 GAME SELESAI!');
   renderAll();
+  
   const rl=document.getElementById('resultList');
   rl.innerHTML='';
   const medals=['🥇','🥈','🥉','4️⃣'];
@@ -1725,18 +1308,20 @@ function endGame(){
     rl.appendChild(row);
   }
   document.getElementById('gameOverlay').classList.add('show');
+  if(IS_ONLINE && IS_HOST) broadcastGameState();
 }
 
 // ═══════════════════════════════════════════════════════
-// AI LOGIC
+// AI ENGINE
 // ═══════════════════════════════════════════════════════
 function runAI(){
-  if(G.isGameOver) return;
+  if(!IS_HOST || G.isGameOver) return;
   const pid=G.turn;
-  if(pid===0||G.finished.includes(pid)) return;
+  if(!isBot(pid) || G.finished.includes(pid)) return;
   const hand=G.hands[pid];
   if(!hand.length){ nextTurn(pid); return; }
   if(G.firstPlay){ const sc=hand.find(c=>c.r==='3'&&c.s==='♦'); playCards(pid,[sc||hand[0]]); return; }
+  
   if(DIFFICULTY==='easy'){
     if(G.mode==='free') aiEasyFree(pid);
     else if(G.mode==='single') aiEasySingle(pid);
@@ -1752,39 +1337,15 @@ function runAI(){
   }
 }
 
-// ═══════════════════════════════════════════════════════
-// DIFFICULTY
-// ═══════════════════════════════════════════════════════
-let DIFFICULTY = 'easy'; // 'easy' | 'medium' | 'hard'
-
-function showDiffScreen(){
-  document.getElementById('gameOverlay').classList.remove('show');
-  document.getElementById('diffOverlay').classList.remove('hidden');
-}
-
-function startGame(diff){
-  DIFFICULTY = diff;
-  document.getElementById('diffOverlay').classList.add('hidden');
-  const labels={'easy':'🟢 EASY','medium':'🟡 MEDIUM','hard':'🔴 HARD'};
-  const el=document.getElementById('diffLabel');
-  if(el) el.textContent='· '+labels[diff];
-  newGame();
-}
-
-// ─── EASY AI ─── (original, random)
 function aiEasyFree(pid){ playCards(pid,[G.hands[pid][0]]); }
-
 function aiEasySingle(pid){
   const hand=G.hands[pid], table=G.tableCards[0];
   const twos=hand.filter(c=>c.r==='2');
-  // Kartu 2 di mode single WAJIB REM — tidak bisa dibuang biasa
-  if(twos.length&&!G.usedRem[pid]&&Math.random()>0.75){ doRem(pid,twos[0]); return; }
-  // Filter kartu 2 dari kandidat (kartu 2 tidak bisa main biasa di single)
+  if(twos.length&&Math.random()>0.75){ doRem(pid,twos[0]); return; }
   const cands=hand.filter(c=>c.r!=='2'&&c.s===table.s&&cardVal(c)>cardVal(table));
   if(!cands.length){ doPass(pid); return; }
   playCards(pid,[cands[0]]);
 }
-
 function aiEasyCombo(pid){
   const tc=detectCombo(G.tableCards), hand=G.hands[pid];
   const beatable=findAllCombos(hand,tc.type,G.tableCards.length).filter(x=>canBeat(x,G.tableCards,tc.type));
@@ -1792,137 +1353,73 @@ function aiEasyCombo(pid){
   playCards(pid,beatable[0]);
 }
 
-// ─── MEDIUM AI ─── (situational, mulai strategis)
 function aiMediumFree(pid){
   const hand=G.hands[pid];
-  // Hitung kartu lawan
   const minOpponent=Math.min(...[0,1,2,3].filter(p=>p!==pid&&!G.finished.includes(p)).map(p=>G.hands[p].length));
-  // Kalau lawan tinggal sedikit — main kombinasi besar
-  if(minOpponent<=4){
-    const tris=findBestCombo(hand,'tris');
-    if(tris){ playCards(pid,tris); return; }
-  }
-  // Coba buang kombinasi dulu untuk efisiensi
+  if(minOpponent<=4){ const tris=findBestCombo(hand,'tris'); if(tris){ playCards(pid,tris); return; } }
   const straight=findBestCombo(hand,'straight');
   if(straight && Math.random()>0.5){ playCards(pid,straight); return; }
-  // Default: main kartu terkecil
   playCards(pid,[hand[0]]);
 }
-
 function aiMediumSingle(pid){
   const hand=G.hands[pid], table=G.tableCards[0];
   const minOpponent=Math.min(...[0,1,2,3].filter(p=>p!==pid&&!G.finished.includes(p)).map(p=>G.hands[p].length));
   const twos=hand.filter(c=>c.r==='2');
-  const shouldRem = twos.length && !G.usedRem[pid] && (minOpponent<=3 || hand.length<=4) && Math.random()>0.4;
+  const shouldRem = twos.length && (minOpponent<=3 || hand.length<=4) && Math.random()>0.4;
   if(shouldRem){ doRem(pid,twos[0]); return; }
-  // Filter kartu 2 — tidak bisa main biasa di single
   const cands=hand.filter(c=>c.r!=='2'&&c.s===table.s&&cardVal(c)>cardVal(table));
   if(!cands.length){ doPass(pid); return; }
-  if(cands.length>1 && cardVal(cands[cands.length-1])>cardVal({r:'K',s:'♠'}) && Math.random()>0.6){
-    playCards(pid,[cands[0]]); return;
-  }
   playCards(pid,[cands[0]]);
 }
-
 function aiMediumCombo(pid){
   const tc=detectCombo(G.tableCards), hand=G.hands[pid];
   const beatable=findAllCombos(hand,tc.type,G.tableCards.length).filter(x=>canBeat(x,G.tableCards,tc.type));
   if(!beatable.length){ doPass(pid); return; }
-  // Main yang terkecil yang bisa ngalahin
   playCards(pid,beatable[0]);
 }
 
-// ─── HARD AI ─── (agresif, baca semua situasi)
 function aiHardFree(pid){
   const hand=G.hands[pid];
   const opponents=[0,1,2,3].filter(p=>p!==pid&&!G.finished.includes(p));
   const minOpp=Math.min(...opponents.map(p=>G.hands[p].length));
-  const myLen=hand.length;
-
-  // Kalau ada lawan mau habis — main kartu tertinggi dulu supaya susah dibalas
   if(minOpp<=3){
-    // Cari kombinasi terbesar untuk pressure
-    const fh=findBestCombo(hand,'fullhouse');
-    if(fh){ playCards(pid,fh); return; }
-    const sf=findBestCombo(hand,'straightflush');
-    if(sf){ playCards(pid,sf); return; }
-    const tris=findBestCombo(hand,'tris');
-    if(tris){ playCards(pid,tris); return; }
+    const fh=findBestCombo(hand,'fullhouse'); if(fh){ playCards(pid,fh); return; }
+    const tris=findBestCombo(hand,'tris'); if(tris){ playCards(pid,tris); return; }
   }
-
-  // Prioritas: buang kombinasi dulu (efisiensi kartu)
-  if(myLen>6){
-    const straight=findBestCombo(hand,'straight');
-    if(straight && Math.random()>0.3){ playCards(pid,straight); return; }
-    const tris=findBestCombo(hand,'tris');
-    if(tris && Math.random()>0.4){ playCards(pid,tris); return; }
-  }
-
-  // Default: main kartu terkecil yang bukan 2
   const nonTwo=hand.filter(c=>c.r!=='2');
   playCards(pid,[nonTwo.length?nonTwo[0]:hand[0]]);
 }
-
 function aiHardSingle(pid){
   const hand=G.hands[pid], table=G.tableCards[0];
   const opponents=[0,1,2,3].filter(p=>p!==pid&&!G.finished.includes(p));
   const minOpp=Math.min(...opponents.map(p=>G.hands[p].length));
   const twos=hand.filter(c=>c.r==='2');
-
-  // REM: kalau lawan hampir menang, atau kita mau habis tapi masih ada yang bisa ngalahin
-  const remUrgent = minOpp<=2 || (hand.length<=3 && twos.length);
-  if(twos.length && !G.usedRem[pid] && (remUrgent || (minOpp<=4 && Math.random()>0.55))){
-    // Pakai 2 tertinggi
-    const bestTwo=twos.reduce((a,b)=>cardVal(a)>cardVal(b)?a:b);
-    doRem(pid,bestTwo); return;
+  if(twos.length && (minOpp<=2 || (hand.length<=3 && twos.length))){
+    doRem(pid,twos.reduce((a,b)=>cardVal(a)>cardVal(b)?a:b)); return;
   }
-
-  // Filter kartu 2 — tidak bisa main biasa di single
   const cands=hand.filter(c=>c.r!=='2'&&c.s===table.s&&cardVal(c)>cardVal(table));
   if(!cands.length){ doPass(pid); return; }
-
-  // Kalau lawan mau habis — counter dengan kartu terkuat
-  if(minOpp<=3){
-    playCards(pid,[cands[cands.length-1]]); return;
-  }
-
-  // Simpan kartu A dan K kalau banyak pilihan
-  const notBig=cands.filter(c=>c.r!=='A'&&c.r!=='K');
-  if(notBig.length && hand.length>5){ playCards(pid,[notBig[0]]); return; }
   playCards(pid,[cands[0]]);
 }
-
 function aiHardCombo(pid){
   const tc=detectCombo(G.tableCards), hand=G.hands[pid];
-  const opponents=[0,1,2,3].filter(p=>p!==pid&&!G.finished.includes(p));
-  const minOpp=Math.min(...opponents.map(p=>G.hands[p].length));
   const beatable=findAllCombos(hand,tc.type,G.tableCards.length).filter(x=>canBeat(x,G.tableCards,tc.type));
   if(!beatable.length){ doPass(pid); return; }
-
-  // Kalau lawan mau habis — pakai terkuat
-  if(minOpp<=3){
-    playCards(pid,beatable[beatable.length-1]); return;
-  }
-  // Pakai terkecil yang cukup
   playCards(pid,beatable[0]);
 }
 
-// ─── HELPER: find best combo of type in hand ───
 function findBestCombo(hand, type){
-  const lens = type==='tris'?[3]:type==='fullhouse'?[5]:type==='straight'||type==='straightflush'?[3,4,5]:[];
+  const lens = type==='tris'?[3]:type==='fullhouse'?[5]:type==='straight'?[3,4,5]:[];
   let best=null;
   for(const len of lens){
     const found=findAllCombos(hand,type,len);
     if(found.length){
-      // pick the one with lowest max card value (save big cards)
       found.sort((a,b)=>Math.max(...a.map(cardVal))-Math.max(...b.map(cardVal)));
       if(!best) best=found[0];
     }
   }
   return best;
 }
-
-
 
 function findAllCombos(hand,type,len){
   const results=[];
@@ -1940,12 +1437,12 @@ function findAllCombos(hand,type,len){
 }
 
 // ═══════════════════════════════════════════════════════
-// RENDER
+// UI RENDERERS
 // ═══════════════════════════════════════════════════════
 function renderAll(){
   renderHand();
   renderTable();
-  renderBotCards();
+  renderOpponentCards();
   renderNameplates();
   renderStatus();
   renderButtons();
@@ -1961,27 +1458,24 @@ function makeCardEl(c, extraClass=''){
 function renderHand(){
   const wrap=document.getElementById('handCardsWrap');
   wrap.innerHTML='';
-  if (G.finished.includes(0)){
+  if (G.finished.includes(MY_PID)){
     wrap.innerHTML='<span style="color:#2ecc71;font-size:0.75rem;padding:20px">✅ Kartu habis! Kamu menang!</span>';
     return;
   }
-  // Deteksi bomb cards (quartet / straight flush)
-  const bombCards=findBomb(G.hands[0])||[];
+  const bombCards=findBomb(G.hands[MY_PID])||[];
   const bombKeys=new Set(bombCards.map(x=>x.r+x.s));
 
-  // Pisah: bomb di kiri, sisanya tetap urut
   const entries=handOrder.map((oi,vi)=>({oi,vi}));
-  const bombEntries=entries.filter(({oi})=>bombKeys.has(G.hands[0][oi].r+G.hands[0][oi].s));
-  const otherEntries=entries.filter(({oi})=>!bombKeys.has(G.hands[0][oi].r+G.hands[0][oi].s));
+  const bombEntries=entries.filter(({oi})=>bombKeys.has(G.hands[MY_PID][oi].r+G.hands[MY_PID][oi].s));
+  const otherEntries=entries.filter(({oi})=>!bombKeys.has(G.hands[MY_PID][oi].r+G.hands[MY_PID][oi].s));
   const displayOrder=[...bombEntries,...otherEntries];
 
   let badgeDone=false;
   displayOrder.forEach(({oi,vi})=>{
-    const card=G.hands[0][oi];
+    const card=G.hands[MY_PID][oi];
     const isBomb=bombKeys.has(card.r+card.s);
     const d=makeCardEl(card, selected.includes(vi)?'selected':'');
     d.style.position='relative';
-    // Badge hanya di kartu pertama grup bomb
     if(isBomb && !badgeDone){
       const badge=document.createElement('div');
       badge.className='bomb-badge';
@@ -1993,7 +1487,6 @@ function renderHand(){
     setupDrag(d,vi);
     wrap.appendChild(d);
   });
-  // update selected info
   const sel=getSelectedCards();
   const info=document.getElementById('selInfo');
   if (sel.length>0){
@@ -2003,7 +1496,6 @@ function renderHand(){
   } else { info.textContent=''; }
 }
 
-// Seed deterministik per kartu (biar posisi acaknya konsisten, ga jitter tiap render)
 function seedForTableCard(c, i){
   const str = c.r + c.s + i;
   let h = 0;
@@ -2011,8 +1503,6 @@ function seedForTableCard(c, i){
   return h;
 }
 
-// Urutkan kartu untuk ditampilkan (angka kecil→besar) — biar straight/kombinasi
-// selalu kebaca jelas urutannya, baik punya kita maupun punya lawan.
 function sortCardsForDisplay(cards){
   return [...cards].sort((a,b)=>{
     const rd = RANKS.indexOf(a.r)-RANKS.indexOf(b.r);
@@ -2028,24 +1518,18 @@ function renderTable(){
     const s=document.createElement('span'); s.className='table-empty-text'; s.textContent='Meja Kosong';
     wrap.appendChild(s); return;
   }
-  // Tampilkan maksimal beberapa giliran terakhir dlm ronde ini, biar meja ga penuh sesak
   const maxShow = 5;
   const shown = stacks.slice(Math.max(0, stacks.length-maxShow));
   const lastIdx = shown.length-1;
 
   shown.forEach((entry,idx)=>{
     const isTop = idx===lastIdx;
-    const back = lastIdx-idx; // 0 = giliran terakhir, makin besar makin lama
+    const back = lastIdx-idx;
     const seed = seedForTableCard(entry.cards[0], entry.pid*100+idx);
     let rot, dx, dy;
     if (isTop){
-      // Giliran terakhir — hampir lurus & fokus di tengah, kartu selalu berurutan rapi
-      rot = ((seed%10)-5)*0.6;
-      dx = ((seed>>3)%10)-5;
-      dy = ((seed>>5)%10)-5;
+      rot = ((seed%10)-5)*0.6; dx = ((seed>>3)%10)-5; dy = ((seed>>5)%10)-5;
     } else {
-      // Giliran-giliran sebelumnya di ronde yg sama — digeser diagonal ke belakang,
-      // tetap 1 kelompok rapi (bukan diacak per-kartu) biar tetap kebaca jelas
       rot = (((seed%14)-7)) + (idx%2===0 ? -3 : 3);
       dx = (((seed>>3)%10)-5) - back*7;
       dy = (((seed>>5)%8)-4) - back*6;
@@ -2065,23 +1549,10 @@ function renderTable(){
   });
 }
 
-function animateLastTableCard(){
-  // Hanya animasikan kelompok kartu terakhir yang baru masuk ke meja
-  const stacks = document.querySelectorAll('#tableCardsWrap .table-stack');
-  if(!stacks.length) return;
-  const lastStack = stacks[stacks.length-1];
-  const cards = lastStack.querySelectorAll('.card');
-  cards.forEach((el,i)=>{
-    el.style.animationDelay = (i*0.05)+'s';
-    el.classList.remove('card-flyin-anim');
-    void el.offsetWidth;
-    el.classList.add('card-flyin-anim');
-  });
-}
-
-function renderBotCards(){
-  [1,2,3].forEach(pid=>{
-    const wrap=document.getElementById(`bcards${pid}`);
+function renderOpponentCards(){
+  for(let seat=1; seat<=3; seat++){
+    const pid = (MY_PID + seat) % 4;
+    const wrap=document.getElementById(`bcards${seat}`);
     wrap.innerHTML='';
     const n=Math.min(G.hands[pid].length, 13);
     for(let i=0;i<n;i++){
@@ -2089,29 +1560,29 @@ function renderBotCards(){
       d.className='card-back';
       wrap.appendChild(d);
     }
-  });
+  }
 }
 
 function renderNameplates(){
-  [0,1,2,3].forEach(pid=>{
-    const np=document.getElementById(`np${pid}`);
-    if (!np) return;
+  for(let seat=0; seat<=3; seat++){
+    const pid = (MY_PID + seat) % 4;
+    const np=document.getElementById(`np${seat}`);
+    if (!np) continue;
     const isActive=G.turn===pid;
     const isDone=G.finished.includes(pid);
     np.className='nameplate'+(isActive?' active':'')+(isDone?' finished':'');
-    const av=document.getElementById(`av${pid}`);
-    if (av){ av.style.background=COLORS[pid]+'30'; av.style.color=COLORS[pid]; }
-    const nc=document.getElementById(`npcards${pid}`);
-    if (nc){
-      nc.textContent=isDone?'Selesai ✓':`${G.hands[pid].length} kartu`;
-    }
-  });
+    
+    const nameEl=document.getElementById(`npname${seat}`);
+    if(nameEl) nameEl.textContent = seat===0 ? `${PLAYER_NAMES[pid]} (Kamu)` : PLAYER_NAMES[pid];
+    
+    const nc=document.getElementById(`npcards${seat}`);
+    if (nc) nc.textContent=isDone?'Selesai ✓':`${G.hands[pid].length} kartu`;
+  }
 }
 
 function renderStatus(){
   const strip=document.getElementById('statusStrip');
   strip.innerHTML='';
-  // Mode chip
   const mc=document.createElement('div');
   mc.className='mode-chip';
   if (G.remActive){ mc.className+=' chip-rem'; mc.textContent='⚡ REM AKTIF'; }
@@ -2119,7 +1590,7 @@ function renderStatus(){
   else if (G.mode==='combo'){ mc.className+=' chip-combo'; mc.textContent=G.comboType?G.comboType.toUpperCase():'COMBO'; }
   else { mc.className+=' chip-free'; mc.textContent='BEBAS'; }
   strip.appendChild(mc);
-  // Pass counter
+
   if (G.passCount>0){
     const pc=document.createElement('div');
     pc.className='pass-chip';
@@ -2129,45 +1600,42 @@ function renderStatus(){
 }
 
 function renderButtons(){
-  const isMyTurn=G.turn===0&&!G.finished.includes(0);
+  const isMyTurn=G.turn===MY_PID&&!G.finished.includes(MY_PID);
   const gameOver=G.isGameOver;
-  // Disable/enable hand area
-  const bombWindow=G.remActive&&!G.usedRem[0]&&!G.skippedBomb[0]&&!G.finished.includes(0)&&!gameOver;
+  const bombWindow=G.remActive&&!G.usedRem[MY_PID]&&!G.skippedBomb[MY_PID]&&!G.finished.includes(MY_PID)&&!gameOver;
+  
   const handEl=document.getElementById('handArea');
   if(handEl) handEl.classList.toggle('disabled', !isMyTurn && !bombWindow);
-  const canBomb=G.remActive&&!G.usedRem[0]&&!G.skippedBomb[0]&&!G.finished.includes(0)&&!gameOver;
+  
+  const canBomb=G.remActive&&!G.usedRem[MY_PID]&&!G.skippedBomb[MY_PID]&&!G.finished.includes(MY_PID)&&!gameOver;
 
-  // Main & Pass — selalu tampil, biar user gak bingung kehilangan tombol utama
   document.getElementById('btnPlay').disabled=!isMyTurn||gameOver;
   document.getElementById('btnPass').disabled=(!isMyTurn&&!canBomb)||gameOver;
 
-  // REM — cuma tampil kalau beneran ada kartu 2 di tangan & situasinya memungkinkan REM
-  const hasRemCard = G.hands[0].some(c=>c.r==='2');
-  const remApplicable = G.mode==='single' && G.tableCards.length>0 && !G.remActive && !G.usedRem[0] && !G.finished.includes(0) && !gameOver;
+  const hasRemCard = G.hands[MY_PID].some(c=>c.r==='2');
+  const remApplicable = G.mode==='single' && G.tableCards.length>0 && !G.finished.includes(MY_PID) && !gameOver;
   const btnRem=document.getElementById('btnRem');
   const showRem = hasRemCard && remApplicable;
   btnRem.style.display = showRem ? 'inline-block' : 'none';
   btnRem.disabled = !showRem || !isMyTurn;
 
-  // BOM — cuma tampil kalau jendela BOM lagi terbuka & beneran punya kombinasi bom
-  const bombCards = findBomb(G.hands[0]);
+  const bombCards = findBomb(G.hands[MY_PID]);
   const btnBomb=document.getElementById('btnBomb');
   const showBomb = canBomb && !!bombCards;
   btnBomb.style.display = showBomb ? 'inline-block' : 'none';
   btnBomb.disabled = !showBomb;
 
-  const sb=document.getElementById('btnSkipBomb');
-  sb.style.display=canBomb?'inline-block':'none';
+  document.getElementById('btnSkipBomb').style.display=canBomb?'inline-block':'none';
 }
 
 function updateHint(){
   const el=document.getElementById('hintBar');
-  if (G.remActive&&!G.usedRem[0]&&!G.skippedBomb[0]&&!G.finished.includes(0)){
-    el.innerHTML=`<span class="danger">⚡ REM aktif!</span> Tekan <span class="hl">💥 BOM</span> untuk counter, atau <span class="hl">❌ Skip</span> untuk lanjut`;
+  if (G.remActive&&!G.usedRem[MY_PID]&&!G.skippedBomb[MY_PID]&&!G.finished.includes(MY_PID)){
+    el.innerHTML=`<span class="danger">⚡ REM aktif!</span> Tekan <span class="hl">💥 BOM</span> untuk counter, atau <span class="hl">❌ Skip</span>`;
     return;
   }
-  if (G.finished.includes(0)){ el.innerHTML=''; return; }
-  if (G.turn!==0){ el.innerHTML=`<span>Menunggu ${PLAYER_NAMES[G.turn]}...</span>`; return; }
+  if (G.finished.includes(MY_PID)){ el.innerHTML=''; return; }
+  if (G.turn!==MY_PID){ el.innerHTML=`<span>Menunggu ${PLAYER_NAMES[G.turn]}...</span>`; return; }
   if (G.mode==='single'&&G.tableCards.length)
     el.innerHTML=`Pilih <span class="hl">kartu suit sama & lebih besar</span>, atau <span class="hl">kartu 2</span> untuk REM`;
   else if (G.mode==='combo')
@@ -2177,7 +1645,7 @@ function updateHint(){
 }
 
 // ═══════════════════════════════════════════════════════
-// LOG
+// LOGS & UTILS
 // ═══════════════════════════════════════════════════════
 function log(type,msg){
   const el=document.getElementById('logScroll');
@@ -2188,14 +1656,8 @@ function log(type,msg){
   el.scrollTop=el.scrollHeight;
 }
 function clearLog(){ document.getElementById('logScroll').innerHTML=''; }
-function toggleLog(){
-  const p=document.getElementById('logPanel');
-  p.classList.toggle('open');
-}
+function toggleLog(){ document.getElementById('logPanel').classList.toggle('open'); }
 
-// ═══════════════════════════════════════════════════════
-// TOAST
-// ═══════════════════════════════════════════════════════
 let toastTimer=null;
 function toast(msg,type=''){
   const el=document.getElementById('toast');
@@ -2205,23 +1667,17 @@ function toast(msg,type=''){
   toastTimer=setTimeout(()=>{ el.className=''; },2200);
 }
 
+function toggleRules(){ document.getElementById('rulesOverlay').classList.toggle('open'); }
 
-// ═══════════════════════════════════════════════════════
-// RULES PANEL
-// ═══════════════════════════════════════════════════════
-function toggleRules(){
-  document.getElementById('rulesOverlay').classList.toggle('open');
-}
-
-// ═══════════════════════════════════════════════════════
-// ANIMATION HELPERS
-// ═══════════════════════════════════════════════════════
-function animateTableCards(){
-  const cards = document.querySelectorAll('#tableCardsWrap .table-stack .card');
+function animateLastTableCard(){
+  const stacks = document.querySelectorAll('#tableCardsWrap .table-stack');
+  if(!stacks.length) return;
+  const lastStack = stacks[stacks.length-1];
+  const cards = lastStack.querySelectorAll('.card');
   cards.forEach((el,i)=>{
-    el.style.animationDelay = (i*0.06)+'s';
+    el.style.animationDelay = (i*0.05)+'s';
     el.classList.remove('card-flyin-anim');
-    void el.offsetWidth; // reflow
+    void el.offsetWidth;
     el.classList.add('card-flyin-anim');
   });
 }
@@ -2243,7 +1699,8 @@ function animateBomb(){
 }
 
 function animateWinNameplate(pid){
-  const np = document.getElementById('np'+pid);
+  const seat = (pid - MY_PID + 4) % 4;
+  const np = document.getElementById('np'+seat);
   if(!np) return;
   np.classList.remove('np-win-anim');
   void np.offsetWidth;
@@ -2261,9 +1718,8 @@ function animateDealHand(){
   }, 50);
 }
 
-
 // ═══════════════════════════════════════════════════════
-// SOUND & VIBRATION
+// AUDIO & VIBRATION
 // ═══════════════════════════════════════════════════════
 const AudioCtx = window.AudioContext || window.webkitAudioContext;
 let _actx = null;
@@ -2279,53 +1735,29 @@ function playSound(type){
     const ctx = getAudioCtx();
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
-    osc.connect(gain);
-    gain.connect(ctx.destination);
+    osc.connect(gain); gain.connect(ctx.destination);
 
     if(type === 'card'){
-      // Suara kartu jatuh — klik pendek
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(800, ctx.currentTime);
+      osc.type = 'sine'; osc.frequency.setValueAtTime(800, ctx.currentTime);
       osc.frequency.exponentialRampToValueAtTime(300, ctx.currentTime + 0.08);
       gain.gain.setValueAtTime(0.18, ctx.currentTime);
       gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.1);
-      osc.start(ctx.currentTime);
-      osc.stop(ctx.currentTime + 0.1);
+      osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.1);
     }
     else if(type === 'select'){
-      // Suara pilih kartu — tick ringan
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(1100, ctx.currentTime);
+      osc.type = 'sine'; osc.frequency.setValueAtTime(1100, ctx.currentTime);
       gain.gain.setValueAtTime(0.08, ctx.currentTime);
       gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.06);
-      osc.start(ctx.currentTime);
-      osc.stop(ctx.currentTime + 0.06);
+      osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.06);
     }
     else if(type === 'rem'){
-      // Suara REM — dua nada turun dramatis
-      osc.type = 'sawtooth';
-      osc.frequency.setValueAtTime(600, ctx.currentTime);
+      osc.type = 'sawtooth'; osc.frequency.setValueAtTime(600, ctx.currentTime);
       osc.frequency.exponentialRampToValueAtTime(150, ctx.currentTime + 0.25);
       gain.gain.setValueAtTime(0.25, ctx.currentTime);
       gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
-      osc.start(ctx.currentTime);
-      osc.stop(ctx.currentTime + 0.3);
-      // Nada kedua
-      setTimeout(()=>{
-        try{
-          const ctx2=getAudioCtx(), o2=ctx2.createOscillator(), g2=ctx2.createGain();
-          o2.connect(g2); g2.connect(ctx2.destination);
-          o2.type='sawtooth';
-          o2.frequency.setValueAtTime(400,ctx2.currentTime);
-          o2.frequency.exponentialRampToValueAtTime(100,ctx2.currentTime+0.2);
-          g2.gain.setValueAtTime(0.2,ctx2.currentTime);
-          g2.gain.exponentialRampToValueAtTime(0.001,ctx2.currentTime+0.25);
-          o2.start(ctx2.currentTime); o2.stop(ctx2.currentTime+0.25);
-        }catch(e){}
-      }, 180);
+      osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.3);
     }
     else if(type === 'bomb'){
-      // Suara BOM — ledakan rumble
       const bufSize = ctx.sampleRate * 0.5;
       const buf = ctx.createBuffer(1, bufSize, ctx.sampleRate);
       const data = buf.getChannelData(0);
@@ -2339,9 +1771,7 @@ function playSound(type){
       src.start(); src.stop(ctx.currentTime+0.5);
     }
     else if(type === 'win'){
-      // Suara menang ronde — ding naik
-      const notes=[523,659,784,1047];
-      notes.forEach((freq,i)=>{
+      [523,659,784,1047].forEach((freq,i)=>{
         setTimeout(()=>{
           try{
             const cx=getAudioCtx(), o=cx.createOscillator(), g=cx.createGain();
@@ -2355,28 +1785,18 @@ function playSound(type){
       });
     }
     else if(type === 'pass'){
-      // Suara pass — nada pendek turun
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(400, ctx.currentTime);
+      osc.type = 'sine'; osc.frequency.setValueAtTime(400, ctx.currentTime);
       osc.frequency.exponentialRampToValueAtTime(250, ctx.currentTime + 0.12);
       gain.gain.setValueAtTime(0.08, ctx.currentTime);
       gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12);
-      osc.start(ctx.currentTime);
-      osc.stop(ctx.currentTime + 0.12);
+      osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.12);
     }
-  } catch(e){ /* audio tidak tersedia */ }
+  } catch(e){}
 }
 
 function vibrate(pattern){
-  try{
-    if(navigator.vibrate) navigator.vibrate(pattern);
-  }catch(e){}
+  try{ if(navigator.vibrate) navigator.vibrate(pattern); }catch(e){}
 }
-
-// ═══════════════════════════════════════════════════════
-// START
-// ═══════════════════════════════════════════════════════
-showDiffScreen();
 </script>
 </body>
 </html>
