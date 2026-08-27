@@ -124,7 +124,7 @@ body {
 .pzone-left .bot-cards, .pzone-right .bot-cards { flex-direction: column; }
 .pzone-left .card-back, .pzone-right .card-back { width: 34px; height: 24px; margin-right: 0; margin-bottom: -10px; }
 
-/* ── CENTER TABLE (TUMPUKAN BERANTAKAN + TAG PEMAIN) ── */
+/* ── CENTER TABLE ── */
 #tableCenter {
   position: absolute; top: 48%; left: 50%; transform: translate(-50%, -50%);
   width: 340px; min-height: 180px;
@@ -142,25 +142,21 @@ body {
   text-transform: uppercase; font-family: 'Playfair Display', serif; white-space: nowrap;
 }
 
-/* STYLES TUMPUKAN MEJA */
 .table-stack { 
   position: absolute; top: 50%; left: 50%; 
   display: flex; align-items: center; 
   transition: transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275); 
 }
 .table-stack .card { cursor: default; }
-
 .table-stack.stack-old .card { 
   filter: grayscale(0.85) brightness(0.65); 
   box-shadow: 1px 3px 6px rgba(0,0,0,0.4); 
 }
-
 .table-stack.stack-top .card { 
   filter: none; 
   box-shadow: 0 10px 25px rgba(0,0,0,0.6), 0 0 0 1.5px rgba(201,168,76,0.7); 
 }
 
-/* BADGE LABEL PEMAIN DI KARTU TERAKHIR */
 .player-tag-badge {
   position: absolute; top: -14px; left: 50%; transform: translateX(-50%);
   background: rgba(10, 20, 14, 0.92); border: 1px solid var(--gold);
@@ -233,7 +229,6 @@ body {
 .btn-skip { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.7); border: 1px solid rgba(255,255,255,0.15); }
 .btn-new { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.7); border: 1px solid rgba(255,255,255,0.12); font-size: 0.65rem; border-radius: 8px; padding: 4px 10px; }
 
-/* ── LIVE COMBINATION STATUS BADGE ── */
 #comboBadge {
   font-size: 0.68rem; font-weight: 700; padding: 3px 10px; border-radius: 12px;
   background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.1); color: rgba(255,255,255,0.5);
@@ -515,6 +510,11 @@ window.addEventListener('DOMContentLoaded', () => {
 
   initSupabase();
 });
+
+// AKTIFKAN AUDIO SAAT KLIK PERTAMA DI LAYAR
+window.addEventListener('click', () => {
+  getAudioCtx();
+}, { once: true });
 
 function initSupabase() {
   const url = localStorage.getItem('remi_sp_url') || DEFAULT_URL;
@@ -981,6 +981,7 @@ function doPass(pid){
   nextTurn(pid);
 }
 
+/* ── FIX 1: FIX FREEZE STUCK SAAT KARTU TERAKHIR PEMAIN ADALAH REM (KARTU 2) ── */
 function doRem(pid,card){
   const idx=G.hands[pid].findIndex(x=>x.r===card.r&&x.s===card.s);
   if(idx>=0) G.hands[pid].splice(idx,1);
@@ -989,7 +990,16 @@ function doRem(pid,card){
   G.remActive=true; G.remPlayer=pid; G.tableCards=[card]; G.tablePlayer=pid; G.passCount=0;
   G.roundStacks.push({pid, cards:[card], type:'rem'});
   log('rem',`💣 ${PLAYER_NAMES[pid]} REM! ${cardStr(card)}`); playSound('rem');
-  if (!G.hands[pid].length){ G.finished.push(pid); if (G.lastWinner === null) G.lastWinner = pid; }
+  
+  if (!G.hands[pid].length){ 
+    G.finished.push(pid); 
+    if (G.lastWinner === null) G.lastWinner = pid;
+    if (G.finished.length >= 1) { 
+      // Cek apakah ada lawan yang bisa BOM
+      const otherHasBomb = [0,1,2,3].some(p => p!==pid && !G.finished.includes(p) && findBomb(G.hands[p]));
+      if (!otherHasBomb) { endGame(); return; }
+    }
+  }
   checkBombWindow(pid);
 }
 
@@ -1027,16 +1037,24 @@ function findBomb(hand){
   return null;
 }
 
-/* ── PERBAIKAN: KARTU TIDAK DIHAPUS SAAT WIN ROUND ── */
 function winRound(pid){
   if(G.isGameOver) return;
   log('win',`🏆 ${PLAYER_NAMES[pid]} menang ronde!`); playSound('win');
-  // HANYA KOSONGKAN TABLE CARDS, KARTU DI MEJA (roundStacks) TETAP DIPERTAHANKAN
   G.tableCards=[]; G.tablePlayer=-1; G.passCount=0;
-  G.mode='free'; G.comboType=null; G.remActive=false; G.turn=pid;
+  G.mode='free'; G.comboType=null; G.remActive=false; 
+  
+  // Jika pemenang ronde sudah habis kartunya (finished), oper giliran ke pemain aktif berikutnya
+  if (G.finished.includes(pid)) {
+    const nextP = getNextActive(pid);
+    if (nextP === -1) { endGame(); return; }
+    G.turn = nextP;
+  } else {
+    G.turn = pid;
+  }
+  
   renderAll(); updateHint();
   if(IS_ONLINE) broadcastGameState();
-  if (IS_HOST && isBot(pid)) setTimeout(runAI,900);
+  if (IS_HOST && isBot(G.turn)) setTimeout(runAI,900);
 }
 
 function nextTurn(fromPid){
@@ -1081,17 +1099,88 @@ function showGameOverUI() {
   document.getElementById('gameOverlay').classList.add('show');
 }
 
+/* ── FIX 2 & 3: PENINGKATAN KECERDASAN AI (DIFFICULTY & COMBO RESPONSE) ── */
+function getAllBotCombos(hand) {
+  const combos = [];
+  const len = hand.length;
+  // Single
+  hand.forEach(c => combos.push([c]));
+  // Tris
+  const rc = {}; hand.forEach(c => { rc[c.r] = (rc[c.r]||[]); rc[c.r].push(c); });
+  Object.values(rc).forEach(arr => { if (arr.length >= 3) combos.push(arr.slice(0,3)); });
+  // FullHouse
+  const trisRanks = Object.keys(rc).filter(r => rc[r].length >= 3);
+  const pairRanks = Object.keys(rc).filter(r => rc[r].length >= 2);
+  trisRanks.forEach(tr => {
+    pairRanks.forEach(pr => {
+      if (tr !== pr && RANKS.indexOf(tr) > RANKS.indexOf(pr)) {
+        combos.push([...rc[tr].slice(0,3), ...rc[pr].slice(0,2)]);
+      }
+    });
+  });
+  // Straight
+  const remHand = hand.filter(c => c.r !== '2');
+  for (let l = 3; l <= 5; l++) {
+    for (let i = 0; i <= remHand.length - l; i++) {
+      const slice = remHand.slice(i, i + l);
+      if (checkStraight(slice).valid) combos.push(slice);
+    }
+  }
+  return combos;
+}
+
 function runAI(){
   if(!IS_HOST || G.isGameOver) return;
   const pid=G.turn; if(!isBot(pid) || G.finished.includes(pid)) return;
   const hand=G.hands[pid]; if(!hand.length){ nextTurn(pid); return; }
-  if(G.firstPlay && G.gameCount === 1){ playCards(pid,[hand.find(c=>c.r==='3'&&c.s==='♦')||hand[0]]); return; }
   
-  if(G.mode==='free') playCards(pid,[hand[0]]);
+  if(G.firstPlay && G.gameCount === 1){
+    const card3d = hand.find(c=>c.r==='3'&&c.s==='♦') || hand[0];
+    playCards(pid, [card3d]); 
+    return; 
+  }
+
+  // Easy mode: Kadang sengaja Pass
+  if (DIFFICULTY === 'easy' && Math.random() < 0.35 && G.mode !== 'free') {
+    doPass(pid); return;
+  }
+
+  if(G.mode==='free') {
+    const allCombos = getAllBotCombos(hand);
+    if (DIFFICULTY === 'hard' && allCombos.length > 0) {
+      allCombos.sort((a,b) => b.length - a.length);
+      playCards(pid, allCombos[0]);
+    } else {
+      playCards(pid, [hand[0]]);
+    }
+  } 
   else if(G.mode==='single') {
-    const table=G.tableCards[0], cands=hand.filter(c=>c.r!=='2'&&c.s===table.s&&cardVal(c)>cardVal(table));
-    if(cands.length) playCards(pid,[cands[0]]); else doPass(pid);
-  } else doPass(pid);
+    const table=G.tableCards[0];
+    let cands=hand.filter(c=>c.r!=='2'&&c.s===table.s&&cardVal(c)>cardVal(table));
+    if (DIFFICULTY === 'hard') cands.sort((a,b) => cardVal(b) - cardVal(a));
+    else cands.sort((a,b) => cardVal(a) - cardVal(b));
+    
+    if(cands.length) playCards(pid,[cands[0]]); 
+    else doPass(pid);
+  } 
+  else if(G.mode==='combo') {
+    const allCombos = getAllBotCombos(hand);
+    const tc = detectCombo(G.tableCards);
+    const validCombos = allCombos.filter(cb => canBeat(cb, G.tableCards, tc.type));
+    
+    if (validCombos.length > 0) {
+      if (DIFFICULTY === 'easy') {
+        playCards(pid, validCombos[0]);
+      } else if (DIFFICULTY === 'medium') {
+        playCards(pid, validCombos[0]);
+      } else {
+        // Hard: Pilih kombinasi terbaik
+        playCards(pid, validCombos[validCombos.length - 1]);
+      }
+    } else {
+      doPass(pid);
+    }
+  }
 }
 
 function renderAll(){ renderHand(); renderTable(); renderOpponentCards(); renderNameplates(); renderStatus(); renderButtons(); }
@@ -1126,7 +1215,6 @@ function renderHand(){
   }
 }
 
-/* ── PERBAIKAN: MENAMBAHKAN BADGE NAMA PEMAIN DI KARTU TERAKHIR & MENJAGA TUMPUKAN LAMA ── */
 function seedForTableCard(c, i){
   const str = c.r + c.s + i;
   let h = 0;
@@ -1146,13 +1234,11 @@ function renderTable(){
   const stacks = G.roundStacks||[];
   if (!stacks.length){ wrap.innerHTML='<span class="table-empty-text">Meja Kosong</span>'; return; }
   
-  // Tampilkan hingga 8 tumpukan kartu terakhir agar meja terasa penuh
   const maxShow = 8;
   const shown = stacks.slice(Math.max(0, stacks.length-maxShow));
   const lastIdx = shown.length - 1;
 
   shown.forEach((entry, idx) => {
-    // Tumpukan teratas hanya berwarna jika ronde aktif (tableCards ada performs)
     const isTop = (idx === lastIdx) && (G.tableCards && G.tableCards.length > 0);
     const back = lastIdx - idx;
     const seed = seedForTableCard(entry.cards[0], entry.pid * 100 + idx);
@@ -1174,7 +1260,6 @@ function renderTable(){
     group.style.transform = `translate(-50%,-50%) translate(${dx}px,${dy}px) rotate(${rot}deg)`;
     group.style.zIndex = idx + 1;
     
-    // Tanda / Label Siapa yang Membuang Kartu Ini di Tumpukan Teratas
     if (idx === lastIdx) {
       const tag = document.createElement('div');
       tag.className = 'player-tag-badge';
@@ -1273,7 +1358,6 @@ function toast(msg,type=''){
 }
 function toggleRules(){ document.getElementById('rulesOverlay').classList.toggle('open'); }
 
-/* EFEK SUARA */
 const AudioCtx = window.AudioContext || window.webkitAudioContext;
 let _actx = null;
 function getAudioCtx(){ if(!_actx) _actx = new AudioCtx(); if(_actx.state === 'suspended') _actx.resume(); return _actx; }
@@ -1290,10 +1374,7 @@ function playSound(type){
     }
   } catch(e){}
 }
-// AKTIFKAN AUDIO SAAT KLIK PERTAMA DI LAYAR
-window.addEventListener('click', () => {
-  getAudioCtx();
-}, { once: true });
 </script>
 </body>
 </html>
+
