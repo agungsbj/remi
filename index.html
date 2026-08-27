@@ -3,7 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SBJ - Remi Online & Offline</title>
+<title>SBJ - Game Remi Online</title>
+<!-- Supabase JS Client -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@400;500;600&display=swap');
@@ -19,6 +20,11 @@
   --red: #c0392b;
   --black: #1a1a2e;
   --white: #faf8f2;
+  --shadow: rgba(0,0,0,0.5);
+  --p0: #4a9eff;
+  --p1: #e74c3c;
+  --p2: #2ecc71;
+  --p3: #f39c12;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -26,288 +32,721 @@
 body {
   background: #0f1f15;
   font-family: 'DM Sans', sans-serif;
-  height: 100vh; height: 100dvh;
+  height: 100vh;
+  height: 100dvh;
   overflow: hidden;
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   user-select: none;
 }
 
+/* ── OUTER TABLE ── */
 #gameTable {
   position: relative;
   width: min(98vw, 900px);
-  height: min(96vh, 660px); height: min(96dvh, 660px);
+  height: min(96vh, 660px);
+  height: min(96dvh, 660px);
   background: radial-gradient(ellipse at center, var(--felt-light) 0%, var(--felt) 50%, var(--felt-dark) 100%);
-  border-radius: 16px; border: 6px solid #0a1a10;
+  border-radius: 16px;
+  border: 6px solid #0a1a10;
   box-shadow: 0 0 0 3px var(--gold), 0 0 60px rgba(0,0,0,0.8), inset 0 0 80px rgba(0,0,0,0.3);
   overflow: hidden;
 }
 
 @media (max-width: 700px) {
   body { padding: 0; }
-  #gameTable { width: 100vw; height: 100vh; border-radius: 0; border-width: 4px; }
+  #gameTable {
+    width: 100vw; width: 100dvw;
+    height: 100vh; height: 100dvh;
+    border-radius: 0; border-width: 4px;
+    box-shadow: inset 0 0 80px rgba(0,0,0,0.3);
+  }
 }
 
 #gameTable::before {
   content: ''; position: absolute; inset: 0;
   background-image: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px),
     repeating-linear-gradient(90deg, transparent, transparent 2px, rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px);
-  pointer-events: none;
+  border-radius: 16px; pointer-events: none;
 }
 
-.player-zone { position: absolute; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+/* ── PLAYER ZONES ── */
+.player-zone {
+  position: absolute; display: flex; flex-direction: column; align-items: center; gap: 4px;
+}
 .pzone-top { top: 10px; left: 50%; transform: translateX(-50%); }
 .pzone-left { left: 10px; top: 50%; transform: translateY(-50%); }
 .pzone-right { right: 10px; top: 50%; transform: translateY(-50%); }
+.pzone-bottom { bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 680px; }
 
+/* ── PLAYER NAMEPLATE ── */
 .nameplate {
   display: flex; align-items: center; gap: 6px;
   background: rgba(0,0,0,0.55); border: 1px solid rgba(255,255,255,0.12);
-  border-radius: 20px; padding: 4px 10px 4px 5px; backdrop-filter: blur(4px); transition: all 0.3s;
+  border-radius: 20px; padding: 4px 10px 4px 5px;
+  backdrop-filter: blur(4px); transition: all 0.3s; white-space: nowrap;
 }
 .nameplate.active { border-color: var(--gold); box-shadow: 0 0 12px rgba(201,168,76,0.5); background: rgba(0,0,0,0.75); }
 .nameplate.finished { opacity: 0.5; }
 
-.avatar { width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 700; }
-.np-info { display: flex; flex-direction: column; }
-.np-name { font-size: 0.68rem; font-weight: 600; color: #fff; }
-.np-cards { font-size: 0.58rem; color: rgba(255,255,255,0.5); }
-.turn-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--gold); display: none; }
-.nameplate.active .turn-dot { display: block; }
+.avatar {
+  width: 26px; height: 26px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.75rem; font-weight: 700; flex-shrink: 0;
+}
+.np-info { display: flex; flex-direction: column; gap: 0; }
+.np-name { font-size: 0.68rem; font-weight: 600; color: #fff; line-height: 1.2; }
+.np-cards { font-size: 0.58rem; color: rgba(255,255,255,0.5); line-height: 1.2; }
 
+.turn-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--gold); box-shadow: 0 0 6px var(--gold);
+  animation: pulse 1s infinite; display: none;
+}
+.nameplate.active .turn-dot { display: block; }
+@keyframes pulse { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.6; transform: scale(0.8); } }
+
+/* ── BOT / OPPONENT CARDS ── */
 .bot-cards { display: flex; gap: 0; }
 .card-back {
   width: 22px; height: 32px; border-radius: 4px;
   background: linear-gradient(135deg, #1a3a6e 0%, #0d1f45 100%);
-  border: 1px solid rgba(255,255,255,0.2); margin-right: -10px; position: relative;
+  border: 1px solid rgba(255,255,255,0.2); box-shadow: 1px 1px 3px rgba(0,0,0,0.4);
+  margin-right: -10px; position: relative; flex-shrink: 0;
+}
+.card-back::after {
+  content: ''; position: absolute; inset: 3px;
+  border: 1px solid rgba(255,255,255,0.15); border-radius: 2px;
 }
 .pzone-left .bot-cards, .pzone-right .bot-cards { flex-direction: column; }
 .pzone-left .card-back, .pzone-right .card-back { width: 32px; height: 22px; margin-right: 0; margin-bottom: -8px; }
 
-#tableCenter { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 320px; min-height: 170px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-.table-ring { position: absolute; width: 300px; height: 160px; border-radius: 50%; border: 1px solid rgba(201,168,76,0.2); pointer-events: none; }
-#tableCardsWrap { position: relative; width: 100%; min-height: 140px; }
-.table-empty-text { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: rgba(201,168,76,0.35); font-size: 0.7rem; font-family: 'Playfair Display', serif; }
-.table-stack { position: absolute; top: 50%; left: 50%; display: flex; align-items: center; }
-.table-stack.stack-old .card { filter: grayscale(0.7) brightness(0.82); }
-.table-stack.stack-top .card { filter: none; box-shadow: 0 8px 22px rgba(0,0,0,0.55); }
+/* ── CENTER TABLE ── */
+#tableCenter {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  width: 320px; min-height: 170px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
+}
+.table-ring {
+  position: absolute; width: 300px; height: 160px; border-radius: 50%;
+  border: 1px solid rgba(201,168,76,0.2); top: 50%; left: 50%; transform: translate(-50%,-50%);
+  pointer-events: none;
+}
+#tableCardsWrap { position: relative; width: 100%; min-height: 140px; padding: 8px; }
+.table-empty-text {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  color: rgba(201,168,76,0.35); font-size: 0.7rem; letter-spacing: 2px;
+  text-transform: uppercase; font-family: 'Playfair Display', serif; white-space: nowrap;
+}
+.table-stack { position: absolute; top: 50%; left: 50%; display: flex; align-items: center; transition: transform 0.15s ease; }
+.table-stack .card { cursor: default; }
+.table-stack.stack-old .card { filter: grayscale(0.7) contrast(0.92) brightness(0.82); box-shadow: 1px 3px 7px rgba(0,0,0,0.5); }
+.table-stack.stack-top .card { filter: none; box-shadow: 0 8px 22px rgba(0,0,0,0.55), 0 0 0 1px rgba(201,168,76,0.4); }
 
-#statusStrip { position: absolute; top: 50%; left: 50%; transform: translate(-50%, calc(-50% + 78px)); display: flex; gap: 6px; }
-.mode-chip { padding: 3px 10px; border-radius: 12px; font-size: 0.6rem; font-weight: 600; text-transform: uppercase; }
+/* ── STATUS STRIP ── */
+#statusStrip {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, calc(-50% + 78px));
+  display: flex; gap: 6px; align-items: center; flex-wrap: wrap; justify-content: center;
+}
+.mode-chip { padding: 3px 10px; border-radius: 12px; font-size: 0.6rem; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; }
 .chip-free { background: rgba(46,204,113,0.2); color: #2ecc71; border: 1px solid rgba(46,204,113,0.4); }
 .chip-single { background: rgba(74,158,255,0.2); color: #4a9eff; border: 1px solid rgba(74,158,255,0.4); }
 .chip-combo { background: rgba(243,156,18,0.2); color: #f39c12; border: 1px solid rgba(243,156,18,0.4); }
-.chip-rem { background: rgba(231,76,60,0.25); color: #e74c3c; border: 1px solid rgba(231,76,60,0.5); }
+.chip-rem { background: rgba(231,76,60,0.25); color: #e74c3c; border: 1px solid rgba(231,76,60,0.5); animation: remBlink 0.8s infinite; }
+@keyframes remBlink { 0%,100% { box-shadow: 0 0 6px rgba(231,76,60,0.4); } 50% { box-shadow: 0 0 14px rgba(231,76,60,0.8); } }
+.pass-chip { padding: 3px 8px; border-radius: 12px; font-size: 0.6rem; color: rgba(255,255,255,0.4); background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.08); }
 
+#handArea.disabled { opacity: 0.38; pointer-events: none; filter: saturate(0.25); }
+.bomb-badge {
+  position: absolute; top: -8px; left: -5px; background: #e67e22; color: #fff;
+  font-size: 0.44rem; font-weight: 700; padding: 1px 4px; border-radius: 4px;
+  letter-spacing: 0.2px; white-space: nowrap; z-index: 20; box-shadow: 0 1px 4px rgba(0,0,0,0.5); pointer-events: none;
+}
+
+/* ── CARDS ── */
 .card {
   width: 44px; height: 62px; background: var(--card-bg); border: 1px solid var(--card-border);
-  border-radius: 6px; padding: 4px 0 0 5px; font-weight: 700; cursor: pointer; transition: transform 0.15s; position: relative; flex-shrink: 0;
+  border-radius: 6px; display: block; padding: 4px 0 0 5px; font-weight: 700; cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s; position: relative; box-shadow: 1px 2px 6px rgba(0,0,0,0.3);
+  flex-shrink: 0; overflow: hidden;
 }
-.card .c-rank { font-size: 0.85rem; font-family: 'Playfair Display', serif; }
-.card .c-suit { font-size: 0.95rem; }
-.card .c-suit-bg { position: absolute; right: 3px; bottom: 2px; font-size: 1.5rem; opacity: 0.15; }
+.card .c-rank { font-size: 0.85rem; line-height: 1; font-family: 'Playfair Display', serif; }
+.card .c-suit { font-size: 0.95rem; line-height: 1; margin-top: 1px; }
+.card .c-suit-bg { position: absolute; right: 3px; bottom: 2px; font-size: 1.5rem; opacity: 0.15; line-height: 1; }
 .card.red { color: var(--red); }
 .card.black { color: var(--black); }
 
-#tableCardsWrap .card { width: 48px; height: 68px; }
+#tableCardsWrap .card { width: 48px; height: 68px; box-shadow: 2px 4px 10px rgba(0,0,0,0.4); padding: 5px 0 0 6px; }
+#tableCardsWrap .card .c-rank { font-size: 0.95rem; }
+#tableCardsWrap .card .c-suit { font-size: 1.05rem; }
+#tableCardsWrap .card .c-suit-bg { font-size: 1.7rem; right: 4px; bottom: 3px; }
 
+/* ── HAND ── */
 #handArea {
   position: absolute; bottom: 0; left: 50%; transform: translateX(-50%);
-  width: 100%; max-width: 680px; padding: 6px 12px 6px; background: rgba(0,0,0,0.4);
-  backdrop-filter: blur(6px); border-top: 1px solid rgba(201,168,76,0.2); display: flex; flex-direction: column; gap: 6px; align-items: center;
+  width: 100%; max-width: 680px; padding: 6px 12px 4px; background: rgba(0,0,0,0.4);
+  backdrop-filter: blur(6px); border-top: 1px solid rgba(201,168,76,0.2);
+  border-radius: 0 0 14px 14px; display: flex; flex-direction: column; gap: 6px; align-items: center;
 }
-#handArea.disabled { opacity: 0.38; pointer-events: none; }
-#handCardsWrap { display: flex; flex-wrap: wrap; gap: 4px; padding: 8px; width: 100%; justify-content: center; min-height: 134px; max-height: 140px; }
-#handCardsWrap .card.selected { transform: translateY(-12px); box-shadow: 0 0 0 2px var(--gold); z-index: 10; }
+#handCardsWrap { display: flex; flex-wrap: wrap; gap: 4px; padding: 8px 8px 2px; width: 100%; align-items: flex-start; justify-content: center; min-height: 134px; max-height: 140px; overflow: hidden; }
+#handCardsWrap .card { width: 44px; height: 62px; cursor: grab; transition: transform 0.15s, box-shadow 0.15s; flex-shrink: 0; }
+#handCardsWrap .card.selected { transform: translateY(-12px); box-shadow: 0 8px 20px rgba(201,168,76,0.5), 0 0 0 2px var(--gold); z-index: 10; }
+#handCardsWrap .card:hover:not(.selected) { transform: translateY(-5px); box-shadow: 2px 2px 12px rgba(0,0,0,0.5); z-index: 5; }
+#handCardsWrap .card.dragging { opacity: 0.5; cursor: grabbing; }
 
-/* ── IKON BUTTONS SAJA ── */
-#actionsBar { display: flex; gap: 12px; align-items: center; justify-content: center; }
-.btn { font-family: 'DM Sans', sans-serif; border: none; cursor: pointer; transition: all 0.15s; }
+.drag-over-left { border-left: 2px solid var(--gold) !important; }
+.drag-over-right { border-right: 2px solid var(--gold) !important; }
+
+/* ── ACTIONS BAR ── */
+#actionsBar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: center; }
+.btn { font-family: 'DM Sans', sans-serif; font-size: 1.1rem; font-weight: 700; padding: 8px 18px; border-radius: 20px; border: none; cursor: pointer; transition: all 0.15s; letter-spacing: 0.3px; white-space: nowrap; display: inline-flex; align-items: center; justify-content: center; }
 .btn:disabled { opacity: 0.3; cursor: not-allowed; transform: none !important; }
-
-.btn-icon { width: 50px; height: 50px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.4rem; flex-shrink: 0; padding: 0; }
-.btn-icon:not(:disabled):hover { transform: translateY(-2px) scale(1.05); }
+.btn:not(:disabled):hover { transform: translateY(-2px); }
+.btn:not(:disabled):active { transform: translateY(0); }
 
 .btn-play { background: var(--gold); color: #1a1a1a; box-shadow: 0 4px 14px rgba(201,168,76,0.4); }
-.btn-pass { background: rgba(255,255,255,0.12); color: rgba(255,255,255,0.8); border: 1px solid rgba(255,255,255,0.15); }
-.btn-rem { background: #c0392b; color: #fff; }
-.btn-bomb { background: #e67e22; color: #fff; }
-.btn-skip.btn-icon { width: 40px; height: 40px; font-size: 1rem; background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.6); }
+.btn-play:not(:disabled):hover { background: var(--gold-light); }
+.btn-pass { background: rgba(255,255,255,0.15); color: rgba(255,255,255,0.9); border: 1px solid rgba(255,255,255,0.2); }
+.btn-rem { background: #c0392b; color: #fff; box-shadow: 0 4px 14px rgba(192,57,43,0.4); }
+.btn-rem:not(:disabled):hover { background: #e74c3c; }
+.btn-bomb { background: #e67e22; color: #fff; box-shadow: 0 4px 14px rgba(230,126,34,0.5); }
+.btn-bomb:not(:disabled):hover { background: #f39c12; }
+.btn-skip { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.6); border: 1px solid rgba(255,255,255,0.1); }
+.btn-new { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.6); border: 1px solid rgba(255,255,255,0.1); font-size: 0.62rem; }
 
-.selected-info { font-size: 0.62rem; color: var(--gold); min-width: 60px; text-align: center; }
-#hintBar { font-size: 0.6rem; color: rgba(255,255,255,0.4); text-align: center; }
-.btn-sort { font-size: 0.56rem; padding: 3px 8px; background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.5); border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; cursor: pointer; }
+.selected-info { font-size: 0.62rem; color: var(--gold); opacity: 0.9; min-width: 80px; text-align: center; }
+#hintBar { font-size: 0.6rem; color: rgba(255,255,255,0.4); text-align: center; min-height: 14px; padding-bottom: 2px; }
+#hintBar .hl { color: var(--gold-light); }
+#hintBar .danger { color: #e74c3c; }
 
-#menuOverlay, #lobbyOverlay, #diffOverlay, #gameOverlay { position: absolute; inset: 0; background: rgba(14,31,21,0.95); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; z-index: 450; }
-.hidden { display: none !important; }
+#sortBar { display: flex; gap: 4px; }
+.btn-sort { font-size: 0.56rem; padding: 3px 8px; background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.5); border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; cursor: pointer; transition: all 0.15s; }
+.btn-sort:hover { background: rgba(255,255,255,0.13); color: rgba(255,255,255,0.8); }
 
-.menu-card { background: rgba(0,0,0,0.4); border: 1px solid rgba(201,168,76,0.3); border-radius: 12px; padding: 16px; width: min(90%, 380px); display: flex; flex-direction: column; gap: 10px; text-align: center; }
-.menu-input { background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; padding: 8px; color: #fff; font-size: 0.8rem; text-align: center; outline: none; }
+/* ── LOG PANEL ── */
+#logToggle { position: absolute; top: 12px; right: 18px; background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; color: rgba(255,255,255,0.5); font-size: 0.6rem; padding: 4px 10px; cursor: pointer; z-index: 500; }
+#logPanel { position: absolute; top: 40px; right: 12px; width: 230px; max-height: 320px; background: rgba(8,16,10,0.96); border: 1px solid rgba(201,168,76,0.3); border-radius: 10px; overflow: hidden; display: none; flex-direction: column; z-index: 500; backdrop-filter: blur(10px); }
+#logPanel.open { display: flex; }
+#logTitle { padding: 8px 12px; font-size: 0.62rem; font-weight: 600; color: var(--gold); border-bottom: 1px solid rgba(201,168,76,0.15); letter-spacing: 1px; text-transform: uppercase; }
+#logScroll { overflow-y: auto; padding: 6px 8px; display: flex; flex-direction: column; gap: 2px; flex: 1; }
+.log-line { font-size: 0.62rem; line-height: 1.5; padding: 1px 4px; border-radius: 3px; }
+.log-line.system { color: var(--gold); }
+.log-line.play { color: rgba(255,255,255,0.8); }
+.log-line.pass { color: rgba(255,255,255,0.3); }
+.log-line.win { color: #2ecc71; font-weight: 600; }
+.log-line.rem { color: #e74c3c; font-weight: 600; }
+.log-line.bomb { color: #f39c12; font-weight: 600; }
+.log-line.info { color: rgba(255,255,255,0.35); font-style: italic; }
+
+/* ── GAME OVER OVERLAY ── */
+#gameOverlay { position: absolute; inset: 0; background: rgba(0,0,0,0.75); display: none; flex-direction: column; align-items: center; justify-content: center; gap: 16px; z-index: 200; border-radius: 16px; backdrop-filter: blur(8px); }
+#gameOverlay.show { display: flex; }
+#gameOverlay h2 { font-family: 'Playfair Display', serif; color: var(--gold); font-size: 2rem; text-shadow: 0 0 30px rgba(201,168,76,0.5); }
+.result-list { display: flex; flex-direction: column; gap: 6px; align-items: center; }
+.result-row { display: flex; align-items: center; gap: 10px; padding: 8px 20px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; min-width: 200px; }
+.result-medal { font-size: 1.4rem; }
+.result-name { font-size: 0.9rem; font-weight: 600; color: #fff; }
+
+.btn-newgame { background: var(--gold); color: #1a1a1a; font-family: 'Playfair Display', serif; font-size: 0.9rem; padding: 10px 28px; border-radius: 10px; border: none; cursor: pointer; font-weight: 700; margin-top: 8px; transition: all 0.15s; }
+.btn-newgame:hover { background: var(--gold-light); transform: translateY(-2px); }
+
+#gameTitle { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); font-family: 'Playfair Display', serif; color: rgba(201,168,76,0.4); font-size: 0.75rem; letter-spacing: 4px; text-transform: uppercase; pointer-events: none; white-space: nowrap; }
+
+#toast { position: absolute; bottom: 110px; left: 50%; transform: translateX(-50%) translateY(20px); background: rgba(0,0,0,0.85); color: #fff; padding: 7px 16px; border-radius: 20px; font-size: 0.68rem; border: 1px solid rgba(255,255,255,0.1); opacity: 0; transition: all 0.3s; pointer-events: none; white-space: nowrap; z-index: 150; }
+#toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+#toast.toast-err { border-color: rgba(192,57,43,0.5); color: #e74c3c; }
+
+#btnNewGame { position: absolute; top: 12px; left: 18px; }
+#btnRules { position: absolute; top: 12px; left: 90px; }
+
+/* ── RULES OVERLAY ── */
+#rulesOverlay { position: absolute; inset: 0; background: rgba(0,0,0,0.82); display: none; align-items: center; justify-content: center; z-index: 300; backdrop-filter: blur(6px); border-radius: 16px; }
+#rulesOverlay.open { display: flex; }
+#rulesBox { width: min(90%, 620px); max-height: 88%; background: #0e1f15; border: 1px solid rgba(201,168,76,0.35); border-radius: 14px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.7); }
+#rulesHeader { padding: 14px 18px; border-bottom: 1px solid rgba(201,168,76,0.2); display: flex; align-items: center; justify-content: space-between; }
+#rulesHeader h3 { font-family: 'Playfair Display', serif; color: var(--gold); font-size: 1.1rem; }
+#rulesClose { background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.1); color: rgba(255,255,255,0.6); border-radius: 6px; padding: 4px 10px; cursor: pointer; font-size: 0.72rem; }
+#rulesBody { overflow-y: auto; padding: 16px 18px; display: flex; flex-direction: column; gap: 14px; }
+.rule-section { display: flex; flex-direction: column; gap: 6px; }
+.rule-section h4 { font-size: 0.72rem; font-weight: 700; color: var(--gold); letter-spacing: 1px; text-transform: uppercase; display: flex; align-items: center; gap: 6px; }
+.rule-section p, .rule-section li { font-size: 0.72rem; color: rgba(255,255,255,0.7); line-height: 1.65; }
+.rule-section ul { padding-left: 14px; display: flex; flex-direction: column; gap: 2px; }
+.rule-section li { list-style: disc; }
+.rule-section .hl { color: var(--gold-light); font-weight: 600; }
+.rule-section .danger { color: #e74c3c; font-weight: 600; }
+.rule-section .good { color: #2ecc71; font-weight: 600; }
+
+/* ── ANIMASI ── */
+@keyframes cardDeal { from { transform: translateY(-40px) scale(0.8); opacity: 0; } to { transform: translateY(0) scale(1); opacity: 1; } }
+@keyframes cardFlyIn { from { transform: translateY(-60px) scale(0.7) rotate(-5deg); opacity: 0; } to { transform: translateY(0) scale(1) rotate(0deg); opacity: 1; } }
+@keyframes remShake { 0%,100% { transform: translateX(0); } 20% { transform: translateX(-6px) rotate(-2deg); } 40% { transform: translateX(6px) rotate(2deg); } 60% { transform: translateX(-4px); } 80% { transform: translateX(4px); } }
+@keyframes bombFlash { 0% { background: rgba(230,126,34,0); } 30% { background: rgba(230,126,34,0.25); } 100% { background: rgba(230,126,34,0); } }
+@keyframes nameplateWin { 0%,100% { transform: scale(1); } 50% { transform: scale(1.06); } }
+
+.card-deal-anim { animation: cardDeal 0.3s ease both; }
+.card-flyin-anim { animation: cardFlyIn 0.4s cubic-bezier(.2,1.4,.6,1) both; }
+.table-rem-anim { animation: remShake 0.5s ease; }
+.table-bomb-anim { animation: bombFlash 0.8s ease; }
+.np-win-anim { animation: nameplateWin 0.5s ease 3; }
+
+/* ── MAIN MENU OVERLAY ── */
+#menuOverlay {
+  position: absolute; inset: 0;
+  background: radial-gradient(ellipse at center, #1a4a2e 0%, #0e1f15 100%);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 16px; z-index: 450; border-radius: 16px;
+}
+#menuOverlay.hidden { display: none; }
+#menuTitle { font-family: 'Playfair Display', serif; color: var(--gold); font-size: 2.2rem; text-shadow: 0 0 40px rgba(201,168,76,0.4); }
+
+.menu-card {
+  background: rgba(0,0,0,0.4); border: 1px solid rgba(201,168,76,0.3);
+  border-radius: 12px; padding: 16px; width: min(90%, 380px);
+  display: flex; flex-direction: column; gap: 10px; text-align: center;
+}
+.menu-card h3 { color: var(--gold-light); font-size: 0.9rem; }
+.menu-input {
+  background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 6px; padding: 8px; color: #fff; font-size: 0.8rem; text-align: center; outline: none;
+}
+.menu-input:focus { border-color: var(--gold); }
+.menu-btn-group { display: flex; gap: 8px; justify-content: center; }
+
+/* ── DIFFICULTY SCREEN ── */
+#diffOverlay {
+  position: absolute; inset: 0;
+  background: radial-gradient(ellipse at center, #1a4a2e 0%, #0e1f15 100%);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 20px; z-index: 400; border-radius: 16px;
+}
+#diffOverlay.hidden { display: none; }
+#diffTitle { font-family: 'Playfair Display', serif; color: var(--gold); font-size: 2rem; text-shadow: 0 0 40px rgba(201,168,76,0.4); }
+#diffSubtitle { font-size: 0.78rem; color: rgba(255,255,255,0.4); letter-spacing: 3px; text-transform: uppercase; margin-top: -12px; }
+.diff-options { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+.diff-btn {
+  width: 140px; padding: 14px 10px; border-radius: 12px; border: 2px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.05); cursor: pointer; transition: all 0.2s;
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+}
+.diff-btn:hover { transform: translateY(-4px); border-color: var(--gold); background: rgba(201,168,76,0.1); }
+.diff-icon { font-size: 1.6rem; }
+.diff-name { font-size: 0.8rem; font-weight: 700; color: #fff; text-transform: uppercase; }
+.diff-desc { font-size: 0.6rem; color: rgba(255,255,255,0.45); text-align: center; }
+
+/* ── LOBBY ROOM OVERLAY ── */
+#lobbyOverlay {
+  position: absolute; inset: 0;
+  background: radial-gradient(ellipse at center, #1a4a2e 0%, #0e1f15 100%);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 16px; z-index: 410; border-radius: 16px;
+}
+#lobbyOverlay.hidden { display: none; }
+.lobby-slots { display: flex; flex-direction: column; gap: 8px; width: min(90%, 320px); }
+.lobby-slot {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 16px; background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px; color: #fff; font-size: 0.8rem;
+}
+.lobby-slot.is-host { border-color: var(--gold); }
 </style>
 </head>
 <body>
 
 <div id="gameTable">
+  <!-- MAIN MENU OVERLAY -->
   <div id="menuOverlay">
-    <h1 style="font-family:'Playfair Display'; color:var(--gold);">♠ SBJ - GAME REMI ♥</h1>
+    <div id="menuTitle">♠ SBJ - GAME REMI ONLINE ♥</div>
+    
+    <div class="menu-card" style="display:none;">
+      <h3>1. Konfigurasi Supabase (Online)</h3>
+      <input type="text" id="cfgUrl" class="menu-input">
+      <input type="password" id="cfgKey" class="menu-input">
+      <button class="btn btn-play" onclick="saveSupabaseConfig()">Simpan & Hubungkan</button>
+    </div>
+
     <div class="menu-card">
-      <input type="text" id="cfgName" class="menu-input" placeholder="Nama Pemain">
-      <button class="btn btn-play" style="padding:10px; border-radius:8px; font-weight:bold;" onclick="selectOfflineMode()">🤖 Main Offline vs AI</button>
-      <hr style="border-top:1px solid rgba(255,255,255,0.1)">
-      <button class="btn btn-bomb" style="padding:10px; border-radius:8px; font-weight:bold;" onclick="createOnlineRoom()">➕ Buat Room Baru</button>
-      <div style="display:flex; gap:4px;">
-        <input type="text" id="inputRoomCode" class="menu-input" style="flex:1" placeholder="Kode Room">
-        <button class="btn btn-rem" style="padding:8px 16px; border-radius:6px; font-weight:bold;" onclick="joinOnlineRoom()">🚀 Join</button>
+      <h3>Profil & Mode Main</h3>
+      <input type="text" id="cfgName" class="menu-input" style="margin-bottom:8px;" placeholder="Nama Pemain Anda">
+      <div id="connStatus" style="font-size:0.65rem; color:#2ecc71; margin-bottom:8px;">✅ Online!</div>
+
+      <div class="menu-btn-group">
+        <button class="btn btn-play" onclick="selectOfflineMode()" style="font-size:0.8rem">🤖 Offline vs AI</button>
+      </div>
+      <hr style="border:0; border-top:1px solid rgba(255,255,255,0.1); margin:8px 0;">
+      <div style="display:flex; flex-direction:column; gap:6px;">
+        <button class="btn btn-bomb" id="btnCreateRoom" onclick="createOnlineRoom()" style="font-size:0.8rem">➕ Buat Room Baru</button>
+        <div style="display:flex; gap:4px;">
+          <input type="text" id="inputRoomCode" class="menu-input" style="flex:1" placeholder="Kode Room">
+          <button class="btn btn-rem" id="btnJoinRoom" onclick="joinOnlineRoom()" style="font-size:0.8rem">🚀 Join</button>
+        </div>
       </div>
     </div>
   </div>
 
+  <!-- LOBBY OVERLAY -->
   <div id="lobbyOverlay" class="hidden">
     <h2 style="font-family:'Playfair Display'; color:var(--gold)">ROOM LOBBY</h2>
     <div style="font-size:0.8rem; color:#fff">Kode Room: <b id="lobbyCodeDisplay" style="color:var(--gold-light)">-</b></div>
-    <div id="lobbySlots" style="display:flex; flex-direction:column; gap:8px; width:280px;"></div>
-    <div style="display:flex; gap:8px;">
-      <button class="btn btn-pass" style="padding:8px 16px; border-radius:8px;" onclick="leaveLobby()">Keluar Room</button>
-      <button class="btn btn-play" id="btnStartOnline" style="padding:8px 16px; border-radius:8px; display:none" onclick="startOnlineGame()">Mulai Game!</button>
+    <div class="lobby-slots" id="lobbySlots"></div>
+    <div style="font-size:0.65rem; color:rgba(255,255,255,0.5)">Slot kosong otomatis diisi Bot saat game dimulai.</div>
+    <div class="menu-btn-group">
+      <button class="btn btn-pass" onclick="leaveLobby()" style="font-size:0.8rem">Keluar Room</button>
+      <button class="btn btn-play" id="btnStartOnline" onclick="startOnlineGame()" style="display:none; font-size:0.8rem">Mulai Game!</button>
     </div>
   </div>
 
+  <!-- DIFFICULTY SCREEN -->
   <div id="diffOverlay" class="hidden">
-    <h2 style="font-family:'Playfair Display'; color:var(--gold)">TINGKAT KESULITAN</h2>
-    <div style="display:flex; gap:10px;">
-      <button class="btn btn-play" style="padding:12px 20px; border-radius:8px;" onclick="startGameOffline('easy')">Easy</button>
-      <button class="btn btn-bomb" style="padding:12px 20px; border-radius:8px;" onclick="startGameOffline('medium')">Medium</button>
-      <button class="btn btn-rem" style="padding:12px 20px; border-radius:8px;" onclick="startGameOffline('hard')">Hard</button>
+    <div id="diffTitle">♠ SBJ - GAME REMI OFFLINE ♥</div>
+    <div id="diffSubtitle">Pilih Tingkat Kesulitan AI</div>
+    <div class="diff-options">
+      <button class="diff-btn" onclick="startGameOffline('easy')">
+        <div class="diff-icon">🟢</div>
+        <div class="diff-name" style="color:#2ecc71">Easy</div>
+        <div class="diff-desc">AI santai & acak</div>
+      </button>
+      <button class="diff-btn" onclick="startGameOffline('medium')">
+        <div class="diff-icon">🟡</div>
+        <div class="diff-name" style="color:#f39c12">Medium</div>
+        <div class="diff-desc">AI strategis</div>
+      </button>
+      <button class="diff-btn" onclick="startGameOffline('hard')">
+        <div class="diff-icon">🔴</div>
+        <div class="diff-name" style="color:#e74c3c">Hard</div>
+        <div class="diff-desc">AI sangat agresif</div>
+      </button>
     </div>
+    <button class="btn btn-pass" onclick="showMainMenu()" style="margin-top:10px; font-size:0.8rem">Kembali ke Menu</button>
+  </div>
+
+  <div id="gameTitle">♠ REMI ♥ <span id="diffLabel" style="font-size:0.5rem;opacity:0.5;letter-spacing:2px"></span></div>
+
+  <button class="btn btn-new" id="btnNewGame" onclick="showMainMenu()">🏠 Menu</button>
+  <button class="btn btn-new" id="btnRules" onclick="toggleRules()">📖 Aturan</button>
+
+  <!-- RULES OVERLAY -->
+  <div id="rulesOverlay">
+    <div id="rulesBox">
+      <div id="rulesHeader">
+        <h3>📖 Aturan Permainan</h3>
+        <button id="rulesClose" onclick="toggleRules()">✕ Tutup</button>
+      </div>
+      <div id="rulesBody">
+        <div class="rule-section">
+          <h4>🎯 Dasar</h4>
+          <ul>
+            <li>2–4 pemain, 52 kartu tanpa joker</li>
+            <li>Setiap pemain dapat <span class="hl">13 kartu</span></li>
+            <li>Tujuan: <span class="good">habiskan kartu duluan!</span></li>
+            <li>Game 1: Pemain dengan <span class="hl">3♦</span> wajib membuang kartu itu duluan.</li>
+            <li>Game 2+: Pemegang giliran pertama dimulai dari <span class="good">pemenang ronde sebelumnya</span> (bebas buang kombinasi/single).</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <button id="logToggle" onclick="toggleLog()">📋 LOG</button>
+  <div id="logPanel">
+    <div id="logTitle">Game Log</div>
+    <div id="logScroll"></div>
+  </div>
+
+  <!-- PLAYER ZONES -->
+  <div class="player-zone pzone-top" id="pzone1">
+    <div class="nameplate" id="np1">
+      <div class="avatar" id="av1">P1</div>
+      <div class="np-info">
+        <div class="np-name" id="npname1">Pemain 1</div>
+        <div class="np-cards" id="npcards1">13 kartu</div>
+      </div>
+      <div class="turn-dot"></div>
+    </div>
+    <div class="bot-cards" id="bcards1"></div>
+  </div>
+
+  <div class="player-zone pzone-left" id="pzone2">
+    <div class="nameplate" id="np2">
+      <div class="avatar" id="av2">P2</div>
+      <div class="np-info">
+        <div class="np-name" id="npname2">Pemain 2</div>
+        <div class="np-cards" id="npcards2">13 kartu</div>
+      </div>
+      <div class="turn-dot"></div>
+    </div>
+    <div class="bot-cards" id="bcards2"></div>
+  </div>
+
+  <div class="player-zone pzone-right" id="pzone3">
+    <div class="nameplate" id="np3">
+      <div class="avatar" id="av3">P3</div>
+      <div class="np-info">
+        <div class="np-name" id="npname3">Pemain 3</div>
+        <div class="np-cards" id="npcards3">13 kartu</div>
+      </div>
+      <div class="turn-dot"></div>
+    </div>
+    <div class="bot-cards" id="bcards3"></div>
   </div>
 
   <div id="tableCenter">
     <div class="table-ring"></div>
-    <div id="tableCardsWrap"><span class="table-empty-text">Meja Kosong</span></div>
+    <div id="tableCardsWrap">
+      <span class="table-empty-text">Meja Kosong</span>
+    </div>
     <div id="statusStrip"></div>
   </div>
 
-  <div class="player-zone pzone-top" id="pzone1"><div class="nameplate" id="np1"><div class="avatar">P1</div><div class="np-info"><div class="np-name" id="npname1">P1</div><div class="np-cards" id="npcards1">13</div></div><div class="turn-dot"></div></div><div class="bot-cards" id="bcards1"></div></div>
-  <div class="player-zone pzone-left" id="pzone2"><div class="nameplate" id="np2"><div class="avatar">P2</div><div class="np-info"><div class="np-name" id="npname2">P2</div><div class="np-cards" id="npcards2">13</div></div><div class="turn-dot"></div></div><div class="bot-cards" id="bcards2"></div></div>
-  <div class="player-zone pzone-right" id="pzone3"><div class="nameplate" id="np3"><div class="avatar">P3</div><div class="np-info"><div class="np-name" id="npname3">P3</div><div class="np-cards" id="npcards3">13</div></div><div class="turn-dot"></div></div><div class="bot-cards" id="bcards3"></div></div>
-
+  <!-- BOTTOM PLAYER -->
   <div id="handArea">
-    <div style="display:flex; justify-content:space-between; width:100%; align-items:center;">
-      <div class="nameplate" id="np0" style="background:transparent; border:none;"><div class="avatar" style="color:#4a9eff;">🧑</div><div class="np-info"><div class="np-name" id="npname0" style="color:#4a9eff">Kamu</div><div class="np-cards" id="npcards0">13</div></div><div class="turn-dot"></div></div>
-      <div>
+    <div style="display:flex;align-items:center;gap:8px;width:100%;justify-content:space-between;padding:0 8px;">
+      <div class="nameplate" id="np0" style="background:transparent;border:none;padding:0;">
+        <div class="avatar" id="av0" style="background:rgba(74,158,255,0.2);color:#4a9eff;">🧑</div>
+        <div class="np-info">
+          <div class="np-name" style="color:#4a9eff;" id="npname0">Kamu</div>
+          <div class="np-cards" id="npcards0">13 kartu</div>
+        </div>
+        <div class="turn-dot"></div>
+      </div>
+      <div id="sortBar">
         <button class="btn-sort" onclick="sortByValue()">Nilai ↑</button>
-        <button class="btn-sort" onclick="sortBySuit()">Jenis</button>
+        <button class="btn-sort" onclick="sortBySuit()">Jenis (S.Flush)</button>
+        <button class="btn-sort" onclick="sortByRank()">Angka (Straight)</button>
+        <button class="btn-sort" onclick="groupByCombo()">🧩 Kelompok</button>
         <button class="btn-sort" onclick="clearSelection()">✕ Batal</button>
       </div>
     </div>
 
     <div id="handCardsWrap"></div>
 
-    <!-- IKON-IKON REVISI -->
+    <!-- ACTION BUTTONS TANPA TEXT - KERTAS HANYA ICON -->
     <div id="actionsBar">
-      <button class="btn btn-icon btn-play" id="btnPlay" onclick="humanPlay()" title="Buang Kartu">🃏</button>
-      <button class="btn btn-icon btn-pass" id="btnPass" onclick="humanPass()" title="Pass / Lewat">✋</button>
-      <button class="btn btn-icon btn-rem" id="btnRem" onclick="humanRem()" title="REM">💣</button>
-      <button class="btn btn-icon btn-bomb" id="btnBomb" onclick="humanBomb()" title="BOM Counter">💥</button>
-      <button class="btn btn-icon btn-skip" id="btnSkipBomb" onclick="humanSkipBomb()" title="Skip BOM" style="display:none">❌</button>
+      <button class="btn btn-play" id="btnPlay" onclick="humanPlay()" title="Buang Kartu">🃏</button>
+      <button class="btn btn-pass" id="btnPass" onclick="humanPass()" title="Pass / Lewat">✋</button>
+      <button class="btn btn-rem" id="btnRem" onclick="humanRem()" title="REM">💣</button>
+      <button class="btn btn-bomb" id="btnBomb" onclick="humanBomb()" title="BOM">💥</button>
+      <button class="btn btn-skip" id="btnSkipBomb" onclick="humanSkipBomb()" style="display:none" title="Lewati BOM">❌</button>
       <span class="selected-info" id="selInfo"></span>
     </div>
     <div id="hintBar"></div>
   </div>
 
-  <div id="gameOverlay" class="hidden">
-    <h2 style="font-family:'Playfair Display'; color:var(--gold);">RONDE SELESAI</h2>
-    <div id="resultList" style="display:flex; flex-direction:column; gap:6px;"></div>
-    <button class="btn btn-play" id="btnNextRound" style="padding:10px 24px; border-radius:8px; font-weight:bold; margin-top:10px;" onclick="startNextRound()">Lanjut Ronde Berikutnya 🚀</button>
+  <div id="gameOverlay">
+    <h2>GAME SELESAI</h2>
+    <div class="result-list" id="resultList"></div>
+    <div style="display:flex;gap:10px;margin-top:4px">
+      <button class="btn-newgame" id="btnNextRound" onclick="nextRoundGame()" style="display:none;">🔄 Lanjut Game (Round 2+)</button>
+      <button class="btn-newgame" onclick="showMainMenu()">Kembali Ke Menu</button>
+      <button class="btn-newgame" onclick="toggleLog()" style="background:rgba(255,255,255,0.12);color:#fff;border:1px solid rgba(255,255,255,0.2)">📋 Lihat Log</button>
+    </div>
   </div>
+
+  <div id="toast"></div>
 </div>
 
 <script>
-const SUITS = ['♦','♣','♥','♠'], RANKS = ['3','4','5','6','7','8','9','10','J','Q','K','A','2'];
-let PLAYER_NAMES = ['Saya','P1','P2','P3'];
-let IS_ONLINE = false, IS_HOST = false, MY_PID = 0;
-let supabaseClient = null, roomChannel = null, currentRoomCode = '', lobbyPlayers = [], DIFFICULTY = 'medium';
-let G = {}, selected = [], handOrder = [];
+const SUITS = ['♦','♣','♥','♠'];
+const RANKS = ['3','4','5','6','7','8','9','10','J','Q','K','A','2'];
+let PLAYER_NAMES = ['Saya','Pemain 1','Pemain 2','Pemain 3'];
+const COLORS = ['#4a9eff','#e74c3c','#2ecc71','#f39c12'];
+
+let IS_ONLINE = false;
+let IS_HOST = false;
+let MY_PID = 0;
+let supabaseClient = null;
+let roomChannel = null;
+let currentRoomCode = '';
+let lobbyPlayers = [];
+let DIFFICULTY = 'medium';
+
+let G = {};
+let selected = [];
+let handOrder = [];
+let dragSrcIdx = null;
 
 const DEFAULT_URL = 'https://gfzyunrzobnonufgzumu.supabase.co';
 const DEFAULT_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdmenl1bnJ6b2Jub251Zmd6dW11Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc3OTk3MzcsImV4cCI6MjEwMzM3NTczN30.IxVAclToBMIJizkDi3HKtoMSKddRzyHE6kmcrXfhJtQ';
 
 window.addEventListener('DOMContentLoaded', () => {
-  document.getElementById('cfgName').value = localStorage.getItem('remi_sp_name') || 'Pemain ' + Math.floor(100 + Math.random() * 900);
-  try { supabaseClient = window.supabase.createClient(DEFAULT_URL, DEFAULT_KEY); } catch(e) {}
+  const url = localStorage.getItem('remi_sp_url') || DEFAULT_URL;
+  const key = localStorage.getItem('remi_sp_key') || DEFAULT_KEY;
+  const name = localStorage.getItem('remi_sp_name') || 'Pemain ' + Math.floor(100 + Math.random() * 900);
+
+  document.getElementById('cfgUrl').value = url;
+  document.getElementById('cfgKey').value = key;
+  document.getElementById('cfgName').value = name;
+
+  initSupabase();
 });
+
+function initSupabase() {
+  const url = localStorage.getItem('remi_sp_url') || DEFAULT_URL;
+  const key = localStorage.getItem('remi_sp_key') || DEFAULT_KEY;
+  try {
+    supabaseClient = window.supabase.createClient(url, key);
+    document.getElementById('connStatus').textContent = '✅ Online!';
+    document.getElementById('connStatus').style.color = '#2ecc71';
+  } catch(e) {}
+}
 
 function createOnlineRoom() {
   currentRoomCode = Math.floor(1000 + Math.random() * 9000).toString();
-  IS_HOST = true; MY_PID = 0; joinRoomChannel(currentRoomCode);
+  IS_HOST = true;
+  MY_PID = 0;
+  joinRoomChannel(currentRoomCode);
 }
 
 function joinOnlineRoom() {
   const code = document.getElementById('inputRoomCode').value.trim();
-  if(!code) return;
-  currentRoomCode = code; IS_HOST = false; joinRoomChannel(currentRoomCode);
+  if(!code) { toast('Masukkan Kode Room!','err'); return; }
+  currentRoomCode = code;
+  IS_HOST = false;
+  joinRoomChannel(currentRoomCode);
 }
 
 function joinRoomChannel(code) {
   IS_ONLINE = true;
   const myName = document.getElementById('cfgName').value.trim() || 'Pemain';
   localStorage.setItem('remi_sp_name', myName);
+  
   document.getElementById('menuOverlay').classList.add('hidden');
   document.getElementById('lobbyOverlay').classList.remove('hidden');
   document.getElementById('lobbyCodeDisplay').textContent = code;
 
-  roomChannel = supabaseClient.channel(`remi_room_${code}`, { config: { presence: { key: myName } } });
+  roomChannel = supabaseClient.channel(`remi_room_${code}`, {
+    config: { presence: { key: myName } }
+  });
+
   roomChannel
-    .on('presence', { event: 'sync' }, () => updateLobbyUI(roomChannel.presenceState()))
-    .on('broadcast', { event: 'game_state' }, ({ payload }) => syncGameStateFromHost(payload))
-    .on('broadcast', { event: 'player_action' }, ({ payload }) => { if(IS_HOST) processAction(payload.pid, payload.actionType, payload.data); })
+    .on('presence', { event: 'sync' }, () => {
+      updateLobbyUI(roomChannel.presenceState());
+    })
+    .on('broadcast', { event: 'game_state' }, ({ payload }) => {
+      syncGameStateFromHost(payload);
+    })
+    .on('broadcast', { event: 'player_action' }, ({ payload }) => {
+      if(IS_HOST) handleClientActionAsHost(payload);
+    })
+    .on('broadcast', { event: 'host_left' }, () => {
+      toast('Host keluar. Room dibubarkan.','err');
+      leaveLobby();
+    })
     .subscribe(async (status) => {
-      if (status === 'SUBSCRIBED') await roomChannel.track({ name: myName, isHost: IS_HOST, joinedAt: Date.now() });
+      if (status === 'SUBSCRIBED') {
+        await roomChannel.track({ name: myName, isHost: IS_HOST, joinedAt: Date.now() });
+      }
     });
 }
 
 function updateLobbyUI(state) {
   lobbyPlayers = [];
-  Object.keys(state).forEach(k => lobbyPlayers.push(state[k][0]));
+  Object.keys(state).forEach(key => lobbyPlayers.push(state[key][0]));
   lobbyPlayers.sort((a,b) => a.joinedAt - b.joinedAt);
-  const myIndex = lobbyPlayers.findIndex(p => p.name === document.getElementById('cfgName').value.trim());
+
+  const myName = document.getElementById('cfgName').value.trim();
+  const myIndex = lobbyPlayers.findIndex(p => p.name === myName);
   if(myIndex !== -1) MY_PID = myIndex;
 
-  const container = document.getElementById('lobbySlots'); container.innerHTML = '';
+  const container = document.getElementById('lobbySlots');
+  container.innerHTML = '';
+
   for(let i = 0; i < 4; i++) {
     const slot = document.createElement('div');
-    slot.style.padding = '8px'; slot.style.background = 'rgba(0,0,0,0.4)'; slot.style.borderRadius = '6px'; slot.style.color = '#fff';
-    slot.innerHTML = lobbyPlayers[i] ? `${lobbyPlayers[i].isHost?'👑 ':''}${lobbyPlayers[i].name}` : `<span style="opacity:0.4">Slot ${i+1}: Bot AI</span>`;
+    slot.className = 'lobby-slot';
+    if(lobbyPlayers[i]) {
+      slot.innerHTML = `<span>${lobbyPlayers[i].isHost ? '👑 ' : ''}${lobbyPlayers[i].name}</span> <small style="color:#2ecc71">Siap</small>`;
+      if(lobbyPlayers[i].isHost) slot.classList.add('is-host');
+    } else {
+      slot.innerHTML = `<span style="opacity:0.4">Slot ${i+1}: (Bot AI)</span>`;
+    }
     container.appendChild(slot);
   }
   document.getElementById('btnStartOnline').style.display = IS_HOST ? 'inline-block' : 'none';
 }
 
 function leaveLobby() {
-  if(roomChannel) roomChannel.unsubscribe();
+  if(roomChannel) {
+    if(IS_HOST) roomChannel.send({ type: 'broadcast', event: 'host_left', payload: {} });
+    roomChannel.unsubscribe();
+  }
   IS_ONLINE = false; IS_HOST = false;
   document.getElementById('lobbyOverlay').classList.add('hidden');
-  document.getElementById('menuOverlay').classList.remove('hidden');
+  showMainMenu();
 }
 
 function startOnlineGame() {
   if(!IS_HOST) return;
-  PLAYER_NAMES = ['Bot 1','Bot 2','Bot 3','Bot 4'];
-  for(let i=0; i<4; i++) if(lobbyPlayers[i]) PLAYER_NAMES[i] = lobbyPlayers[i].name;
+  PLAYER_NAMES = ['Pemain 1','Pemain 2','Pemain 3','Pemain 4'];
+  for(let i=0; i<4; i++) {
+    if(lobbyPlayers[i]) PLAYER_NAMES[i] = lobbyPlayers[i].name;
+  }
   document.getElementById('lobbyOverlay').classList.add('hidden');
-  initNewGameData(true, -1);
+  initNewGameData(1, null);
+  broadcastGameState();
 }
 
-function startNextRound() {
-  document.getElementById('gameOverlay').classList.add('hidden');
-  if (IS_HOST) {
-    const winnerPid = G.lastWinner !== undefined ? G.lastWinner : -1;
-    initNewGameData(false, winnerPid);
+function broadcastGameState() {
+  if(!IS_HOST || !roomChannel) return;
+  roomChannel.send({
+    type: 'broadcast',
+    event: 'game_state',
+    payload: { G, PLAYER_NAMES }
+  });
+}
+
+function syncGameStateFromHost(payload) {
+  G = payload.G;
+  PLAYER_NAMES = payload.PLAYER_NAMES;
+  
+  document.getElementById('lobbyOverlay').classList.add('hidden');
+  document.getElementById('diffOverlay').classList.add('hidden');
+  
+  if (!G.isGameOver) {
+    document.getElementById('gameOverlay').classList.remove('show');
+  } else {
+    showGameOverUI();
   }
+  
+  selected = [];
+  if (G.hands && G.hands[MY_PID]) {
+    handOrder = G.hands[MY_PID].map((_, i) => i);
+  } else {
+    handOrder = [];
+  }
+
+  renderAll();
+  renderLogFromState();
+  updateHint();
+}
+
+function sendActionToHost(actionType, data) {
+  if(IS_HOST) {
+    processAction(MY_PID, actionType, data);
+  } else {
+    roomChannel.send({
+      type: 'broadcast',
+      event: 'player_action',
+      payload: { pid: MY_PID, actionType, data }
+    });
+  }
+}
+
+function handleClientActionAsHost(payload) {
+  processAction(payload.pid, payload.actionType, payload.data);
+}
+
+function showMainMenu() {
+  document.getElementById('gameOverlay').classList.remove('show');
+  document.getElementById('diffOverlay').classList.add('hidden');
+  document.getElementById('lobbyOverlay').classList.add('hidden');
+  document.getElementById('menuOverlay').classList.remove('hidden');
 }
 
 function selectOfflineMode() {
   IS_ONLINE = false; IS_HOST = true; MY_PID = 0;
-  PLAYER_NAMES = [document.getElementById('cfgName').value.trim() || 'Kamu', 'Bot 1', 'Bot 2', 'Bot 3'];
+  PLAYER_NAMES = [document.getElementById('cfgName').value.trim() || 'Kamu', 'Pemain 1', 'Pemain 2', 'Pemain 3'];
   document.getElementById('menuOverlay').classList.add('hidden');
   document.getElementById('diffOverlay').classList.remove('hidden');
 }
@@ -315,256 +754,1219 @@ function selectOfflineMode() {
 function startGameOffline(diff) {
   DIFFICULTY = diff;
   document.getElementById('diffOverlay').classList.add('hidden');
-  initNewGameData(true, -1);
+  initNewGameData(1, null);
 }
 
-function initNewGameData(isFirstRound = true, winnerPid = -1) {
-  selected = [];
+function nextRoundGame() {
+  const winner = (G && G.lastWinner !== undefined && G.lastWinner !== null) ? G.lastWinner : 0;
+  const nextGameCount = (G && G.gameCount) ? G.gameCount + 1 : 2;
+  
+  if (IS_ONLINE) {
+    if (IS_HOST) {
+      initNewGameData(nextGameCount, winner);
+      broadcastGameState();
+    }
+  } else {
+    initNewGameData(nextGameCount, winner);
+  }
+}
+
+function initNewGameData(gameCount = 1, prevWinner = null) {
+  document.getElementById('gameOverlay').classList.remove('show');
   const deck = [];
   for (const s of SUITS) for (const r of RANKS) deck.push({r,s});
-  for(let i=deck.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[deck[i],deck[j]]=[deck[j],deck[i]];}
+  shuffle(deck);
   const hands = [[],[],[],[]];
   for (let i=0;i<52;i++) hands[i%4].push(deck[i]);
-  for (const h of hands) h.sort((a,b)=>(RANKS.indexOf(a.r)*4+SUITS.indexOf(a.s))-(RANKS.indexOf(b.r)*4+SUITS.indexOf(b.s)));
+  for (const h of hands) sortHand(h);
 
-  let startingTurn = 0;
-  if(isFirstRound || winnerPid === -1) {
-    startingTurn = hands.findIndex(h=>h.some(c=>c.r==='3'&&c.s==='♦'));
+  let startTurn = 0;
+  if (gameCount === 1 || prevWinner === null) {
+    startTurn = hands.findIndex(h => h.some(c => c.r === '3' && c.s === '♦'));
+    if (startTurn === -1) startTurn = 0;
   } else {
-    startingTurn = winnerPid; // Pemenang ronde sebelumnya yang maju pertama
+    startTurn = prevWinner;
   }
 
   G = {
-    hands, turn: startingTurn, mode: 'free', comboType: null,
-    tableCards: [], roundStacks: [], tablePlayer: -1, passCount: 0,
-    remActive: false, remPlayer: -1, usedRem: [false,false,false,false],
-    skippedBomb: [false,false,false,false], finished: [],
-    firstPlay: isFirstRound, isGameOver: false, lastWinner: winnerPid
+    hands,
+    turn: startTurn,
+    mode: 'free',
+    comboType: null,
+    tableCards: [],
+    roundStacks: [],
+    tablePlayer: -1,
+    passCount: 0,
+    remActive: false,
+    remPlayer: -1,
+    usedRem: [false,false,false,false],
+    skippedBomb: [false,false,false,false],
+    bombOpportunity: false,
+    finished: [],
+    firstPlay: true,
+    isGameOver: false,
+    gameCount: gameCount,
+    lastWinner: null,
+    logs: []
   };
 
+  selected = [];
   handOrder = G.hands[MY_PID].map((_,i)=>i);
+
+  clearLog();
+  log('system',`🎮 Ronde ${gameCount} Dimulai!`);
+  if (gameCount === 1) {
+    log('system',`▶ ${PLAYER_NAMES[G.turn]} punya 3♦ — wajib buang 3♦ duluan!`);
+  } else {
+    log('system',`▶ Pemenang sebelumnya ${PLAYER_NAMES[G.turn]} jalan duluan! (Bebas buang kombinasi/single)`);
+  }
+
   renderAll();
+  animateDealHand();
+  updateHint();
+
   if (IS_HOST) {
     if(IS_ONLINE) broadcastGameState();
-    if (isBot(G.turn)) setTimeout(runAI, 800);
+    if (isBot(G.turn)) setTimeout(runAI, 900);
   }
 }
 
-function isBot(pid) { return !IS_ONLINE ? pid !== 0 : !lobbyPlayers[pid]; }
+function isBot(pid) {
+  if(!IS_ONLINE) return pid !== 0;
+  return !lobbyPlayers[pid];
+}
+
 const cardVal = c => RANKS.indexOf(c.r)*4 + SUITS.indexOf(c.s);
+const cardStr = c => c.r+c.s;
+const cardsStr = arr => arr.map(cardStr).join(' ');
+const isRed = c => c.s==='♦'||c.s==='♥';
+const sortHand = h => h.sort((a,b)=>cardVal(a)-cardVal(b));
+function shuffle(a){ for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} }
 
 function detectCombo(cards) {
   if (!cards||cards.length===0) return {type:null,valid:false};
   if (cards.length===1) return {type:'single',valid:true};
-  if (cards.length===3 && cards.every(c=>c.r===cards[0].r)) return {type:'tris',valid:true};
-  if (cards.length>=3) {
-    const sorted=[...cards].sort((a,b)=>RANKS.indexOf(a.r)-RANKS.indexOf(b.r));
-    if (!sorted.some(c=>c.r==='2')) {
-      let isSeq = true;
-      for (let i=1;i<sorted.length;i++) if (RANKS.indexOf(sorted[i].r)-RANKS.indexOf(sorted[i-1].r)!==1) isSeq = false;
-      if (isSeq) return {type: cards.every(c=>c.s===cards[0].s)?'straightflush':'straight', valid:true};
-    }
+  if (cards.length===3){
+    if (cards.every(c=>c.r===cards[0].r)) return {type:'tris',valid:true};
+    return checkStraight(cards);
   }
-  if (cards.length===5) {
-    const counts={}; cards.forEach(c=>counts[c.r]=(counts[c.r]||0)+1);
-    const ent=Object.entries(counts);
-    if(ent.length===2 && (ent[0][1]===3||ent[1][1]===3)) return {type:'fullhouse', valid:true, trisRank: ent.find(e=>e[1]===3)[0]};
+  if (cards.length===5){
+    const fh=checkFullHouse(cards);
+    if (fh.valid) return fh;
+    return checkStraight(cards);
   }
+  if (cards.length>=3) return checkStraight(cards);
   return {type:null,valid:false};
 }
 
+function checkStraight(cards) {
+  const sorted=[...cards].sort((a,b)=>RANKS.indexOf(a.r)-RANKS.indexOf(b.r));
+  if (sorted.some(c=>c.r==='2')) return {type:null,valid:false};
+  for (let i=1;i<sorted.length;i++)
+    if (RANKS.indexOf(sorted[i].r)-RANKS.indexOf(sorted[i-1].r)!==1) return {type:null,valid:false};
+  const flush=cards.every(c=>c.s===cards[0].s);
+  return {type:flush?'straightflush':'straight',valid:true,sorted};
+}
+
+function checkFullHouse(cards) {
+  if (cards.length!==5) return {valid:false};
+  const counts={};
+  for (const c of cards) counts[c.r]=(counts[c.r]||0)+1;
+  const entries=Object.entries(counts);
+  if (entries.length!==2) return {valid:false};
+  const trisEntry=entries.find(e=>e[1]===3);
+  const pairEntry=entries.find(e=>e[1]===2);
+  if (!trisEntry||!pairEntry) return {valid:false};
+  if (RANKS.indexOf(trisEntry[0])<RANKS.indexOf(pairEntry[0])) return {valid:false};
+  return {type:'fullhouse',valid:true,trisRank:trisEntry[0],pairRank:pairEntry[0]};
+}
+
+function isQuartet(cards){ return cards.length===4&&cards.every(c=>c.r===cards[0].r); }
+
 function canBeat(played,table,tableType) {
   if (played.length!==table.length) return false;
-  const pt=detectCombo(played); if (!pt.valid) return false;
-  if (tableType==='single') return played[0].s===table[0].s && cardVal(played[0])>cardVal(table[0]);
-  if (tableType==='tris') return RANKS.indexOf(played[0].r)>RANKS.indexOf(table[0].r);
-  if (tableType==='straight'||tableType==='straightflush') {
+  const pt=detectCombo(played);
+  if (!pt.valid) return false;
+  if (tableType==='single'){
+    if (pt.type!=='single') return false;
+    if (played[0].s!==table[0].s) return false;
+    return cardVal(played[0])>cardVal(table[0]);
+  }
+  if (tableType==='tris'){
+    if (pt.type!=='tris') return false;
+    return RANKS.indexOf(played[0].r)>RANKS.indexOf(table[0].r);
+  }
+  if (tableType==='straight'||tableType==='straightflush'){
+    if (tableType==='straightflush'&&pt.type!=='straightflush') return false;
+    if (pt.type!=='straight'&&pt.type!=='straightflush') return false;
     const ps=[...played].sort((a,b)=>RANKS.indexOf(a.r)-RANKS.indexOf(b.r));
     const ts=[...table].sort((a,b)=>RANKS.indexOf(a.r)-RANKS.indexOf(b.r));
-    return cardVal(ps[ps.length-1]) > cardVal(ts[ts.length-1]);
+    const pL=ps[ps.length-1],tL=ts[ts.length-1];
+    if (RANKS.indexOf(pL.r)!==RANKS.indexOf(tL.r)) return RANKS.indexOf(pL.r)>RANKS.indexOf(tL.r);
+    return SUITS.indexOf(pL.s)>SUITS.indexOf(tL.s);
   }
-  if (tableType==='fullhouse') return RANKS.indexOf(pt.trisRank)>RANKS.indexOf(detectCombo(table).trisRank);
+  if (tableType==='fullhouse'){
+    if (pt.type!=='fullhouse') return false;
+    const tc=detectCombo(table);
+    return RANKS.indexOf(pt.trisRank)>RANKS.indexOf(tc.trisRank);
+  }
   return false;
 }
 
-function clearSelection() { selected = []; renderHand(); }
-function sortByValue() { handOrder.sort((a,b)=>cardVal(G.hands[MY_PID][a])-cardVal(G.hands[MY_PID][b])); clearSelection(); }
-function sortBySuit() { handOrder.sort((a,b)=>SUITS.indexOf(G.hands[MY_PID][a].s)-SUITS.indexOf(G.hands[MY_PID][b].s)); clearSelection(); }
+function sortByValue(){ handOrder=[...handOrder].sort((a,b)=>cardVal(G.hands[MY_PID][a])-cardVal(G.hands[MY_PID][b])); selected=[]; renderHand(); }
 
-function toggleCard(vi) {
-  if (G.finished.includes(MY_PID) || (G.turn !== MY_PID && !G.remActive)) return;
-  const idx = selected.indexOf(vi);
-  if (idx>=0) selected.splice(idx,1); else selected.push(vi);
+/* ── TOMBOL "JENIS": KHUSUS MENGELOMPOKKAN STRAIGHT FLUSH (SUIT SAMA & BERURUTAN) ── */
+function sortBySuit(){
+  if (!G.hands || !G.hands[MY_PID]) return;
+  const hand = G.hands[MY_PID];
+  const indices = handOrder.slice();
+  const used = new Set();
+  const newOrder = [];
+
+  // Cari Straight Flush per jenis/suit
+  for (const suit of SUITS) {
+    const suitIndices = indices.filter(i => !used.has(i) && hand[i].s === suit && hand[i].r !== '2');
+    suitIndices.sort((a,b) => RANKS.indexOf(hand[a].r) - RANKS.indexOf(hand[b].r));
+    
+    for (let len = Math.min(5, suitIndices.length); len >= 3; len--) {
+      for (let start = 0; start <= suitIndices.length - len; start++) {
+        const slice = suitIndices.slice(start, start + len);
+        let valid = true;
+        for (let k = 1; k < slice.length; k++) {
+          if (RANKS.indexOf(hand[slice[k]].r) - RANKS.indexOf(hand[slice[k-1]].r) !== 1) {
+            valid = false; break;
+          }
+        }
+        if (valid && slice.every(i => !used.has(i))) {
+          slice.forEach(i => { used.add(i); newOrder.push(i); });
+        }
+      }
+    }
+  }
+
+  // Sisa kartu diurutkan berdasarkan jenis
+  const sisa = indices.filter(i => !used.has(i));
+  sisa.sort((a,b) => {
+    const sd = SUITS.indexOf(hand[a].s) - SUITS.indexOf(hand[b].s);
+    return sd !== 0 ? sd : RANKS.indexOf(hand[a].r) - RANKS.indexOf(hand[b].r);
+  });
+  
+  handOrder = [...newOrder, ...sisa];
+  selected = [];
   renderHand();
+  toast('Diurutkan berdasarkan Straight Flush & Jenis');
 }
 
-function getSelectedCards() { return selected.map(vi => G.hands[MY_PID][handOrder[vi]]).filter(Boolean); }
+/* ── TOMBOL "ANGKA": MENGELOMPOKKAN STRAIGHT BIASA (CAMPUR JENIS / BEDA SUIT) ── */
+function sortByRank(){
+  if (!G.hands || !G.hands[MY_PID]) return;
+  const hand = G.hands[MY_PID];
+  const indices = handOrder.slice();
+  const used = new Set();
+  const newOrder = [];
+
+  // Cari Straight Campur (3-5 kartu berurutan beda suit)
+  const remIndices = indices.filter(i => hand[i].r !== '2');
+  remIndices.sort((a,b) => RANKS.indexOf(hand[a].r) - RANKS.indexOf(hand[b].r));
+  
+  for (let len = Math.min(5, remIndices.length); len >= 3; len--) {
+    for (let start = 0; start <= remIndices.length - len; start++) {
+      const slice = remIndices.slice(start, start + len);
+      if (slice.some(i => used.has(i))) continue;
+      
+      const cards = slice.map(i => hand[i]);
+      const res = checkStraight(cards);
+      if (res.valid) {
+        slice.forEach(i => { used.add(i); newOrder.push(i); });
+      }
+    }
+  }
+
+  // Sisa kartu diurutkan berdasarkan Angka / Rank
+  const sisa = indices.filter(i => !used.has(i));
+  sisa.sort((a,b) => {
+    const rd = RANKS.indexOf(hand[a].r) - RANKS.indexOf(hand[b].r);
+    return rd !== 0 ? rd : SUITS.indexOf(hand[a].s) - SUITS.indexOf(hand[b].s);
+  });
+
+  handOrder = [...newOrder, ...sisa];
+  selected = [];
+  renderHand();
+  toast('Diurutkan berdasarkan Straight & Angka');
+}
+
+/* ── FITUR PENGELOMPOKAN TOTAL (Single Kiri -> Combo Kanan) ── */
+function groupByCombo() {
+  if (!G.hands || !G.hands[MY_PID]) return;
+  const hand = G.hands[MY_PID];
+  const indices = handOrder.slice();
+  const used = new Set();
+  const groups = [];
+
+  // 1. Straight Flush
+  for (const suit of SUITS) {
+    const suitIndices = indices.filter(i => !used.has(i) && hand[i].s === suit && hand[i].r !== '2');
+    suitIndices.sort((a,b) => RANKS.indexOf(hand[a].r) - RANKS.indexOf(hand[b].r));
+    for (let len = suitIndices.length; len >= 3; len--) {
+      for (let start = 0; start <= suitIndices.length - len; start++) {
+        const slice = suitIndices.slice(start, start + len);
+        let valid = true;
+        for (let k = 1; k < slice.length; k++) {
+          if (RANKS.indexOf(hand[slice[k]].r) - RANKS.indexOf(hand[slice[k-1]].r) !== 1) {
+            valid = false; break;
+          }
+        }
+        if (valid && slice.every(i => !used.has(i))) {
+          slice.forEach(i => used.add(i));
+          groups.push({ typeOrder: 1, cards: slice });
+        }
+      }
+    }
+  }
+
+  // 2. Full House
+  const rankGroups = {};
+  indices.forEach(i => {
+    if (!used.has(i)) {
+      const r = hand[i].r;
+      if (!rankGroups[r]) rankGroups[r] = [];
+      rankGroups[r].push(i);
+    }
+  });
+
+  const trisRanks = Object.keys(rankGroups).filter(r => rankGroups[r].length >= 3);
+  const pairRanks = Object.keys(rankGroups).filter(r => rankGroups[r].length >= 2);
+
+  for (const tr of trisRanks) {
+    const pr = pairRanks.find(p => p !== tr && RANKS.indexOf(tr) > RANKS.indexOf(p));
+    if (pr) {
+      const tCards = rankGroups[tr].slice(0, 3);
+      const pCards = rankGroups[pr].slice(0, 2);
+      if (tCards.every(i => !used.has(i)) && pCards.every(i => !used.has(i))) {
+        const fh = [...tCards, ...pCards];
+        fh.forEach(i => used.add(i));
+        groups.push({ typeOrder: 2, cards: fh });
+      }
+    }
+  }
+
+  // 3. Tris
+  for (const r of RANKS) {
+    const avail = indices.filter(i => !used.has(i) && hand[i].r === r);
+    if (avail.length === 3) {
+      avail.forEach(i => used.add(i));
+      groups.push({ typeOrder: 3, cards: avail });
+    }
+  }
+
+  // 4. Straight Campur
+  const remIndices = indices.filter(i => !used.has(i) && hand[i].r !== '2');
+  remIndices.sort((a,b) => RANKS.indexOf(hand[a].r) - RANKS.indexOf(hand[b].r));
+  for (let len = Math.min(5, remIndices.length); len >= 3; len--) {
+    for (let start = 0; start <= remIndices.length - len; start++) {
+      const slice = remIndices.slice(start, start + len);
+      if (slice.some(i => used.has(i))) continue;
+      const cards = slice.map(i => hand[i]);
+      const res = checkStraight(cards);
+      if (res.valid) {
+        slice.forEach(i => used.add(i));
+        groups.push({ typeOrder: 4, cards: slice });
+      }
+    }
+  }
+
+  // 5. Single
+  const singles = indices.filter(i => !used.has(i));
+  singles.sort((a,b) => cardVal(hand[a]) - cardVal(hand[b]));
+  if (singles.length > 0) {
+    groups.push({ typeOrder: 5, cards: singles });
+  }
+
+  groups.sort((a,b) => b.typeOrder - a.typeOrder);
+
+  const newOrder = [];
+  groups.forEach(g => newOrder.push(...g.cards));
+  
+  handOrder = newOrder;
+  selected = [];
+  renderHand();
+  toast('Kartu dikelompokkan!');
+}
+
+function clearSelection(){ selected=[]; renderHand(); updateHint(); }
+
+function setupDrag(div, visualIdx) {
+  div.draggable = true;
+  div.addEventListener('dragstart', e => { dragSrcIdx = visualIdx; div.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'; });
+  div.addEventListener('dragend', () => { div.classList.remove('dragging'); document.querySelectorAll('.drag-over-left,.drag-over-right').forEach(el=>el.classList.remove('drag-over-left','drag-over-right')); });
+  div.addEventListener('dragover', e => {
+    e.preventDefault();
+    if (dragSrcIdx === null || dragSrcIdx === visualIdx) return;
+    document.querySelectorAll('.drag-over-left,.drag-over-right').forEach(el=>el.classList.remove('drag-over-left','drag-over-right'));
+    const rect = div.getBoundingClientRect();
+    if (e.clientX < (rect.left + rect.width/2)) div.classList.add('drag-over-left'); else div.classList.add('drag-over-right');
+  });
+  div.addEventListener('drop', e => {
+    e.preventDefault();
+    if (dragSrcIdx === null || dragSrcIdx === visualIdx) return;
+    const rect = div.getBoundingClientRect();
+    let insertAt = (e.clientX >= rect.left + rect.width/2) ? visualIdx + 1 : visualIdx;
+    const moved = handOrder.splice(dragSrcIdx, 1)[0];
+    if (dragSrcIdx < insertAt) insertAt--;
+    handOrder.splice(insertAt, 0, moved);
+    selected = [];
+    dragSrcIdx = null;
+    renderHand(); updateHint();
+  });
+}
+
+function toggleCard(visualIdx) {
+  if (G.finished.includes(MY_PID)) return;
+  if (G.turn !== MY_PID && !(G.remActive && !G.usedRem[MY_PID] && !G.skippedBomb[MY_PID])) return;
+  const i = selected.indexOf(visualIdx);
+  if (i>=0) selected.splice(i,1); else selected.push(visualIdx);
+  playSound('select'); vibrate(10);
+  renderHand(); updateHint();
+}
+
+function getSelectedCards() { 
+  return selected.filter(vi => vi < handOrder.length).map(vi => G.hands[MY_PID][handOrder[vi]]).filter(Boolean); 
+}
 
 function humanPlay() {
   if (G.turn!==MY_PID) return;
   const cards = getSelectedCards();
-  if (!cards.length) return;
+  if (!cards.length){ toast('Pilih kartu dulu!','err'); return; }
 
   if (G.tableCards.length===0) {
-    if (G.firstPlay && (cards.length!==1||cards[0].r!=='3'||cards[0].s!=='♦')) return;
-    const combo=detectCombo(cards); if (!combo.valid) return;
-    sendAction('PLAY', cards); return;
-  }
-  if (G.mode==='single') {
-    if (cards.length!==1) return;
-    if(cards[0].r==='2') { sendAction('REM', cards[0]); return; }
-    if (canBeat(cards,G.tableCards,'single')) sendAction('PLAY', cards);
-    return;
-  }
-  if (G.mode==='combo'||G.mode==='free') {
+    if (G.firstPlay && G.gameCount === 1){
+      if (cards.length!==1||cards[0].r!=='3'||cards[0].s!=='♦'){
+        toast('Game 1: Kartu pertama wajib 3♦ single!','err'); return;
+      }
+    }
     const combo=detectCombo(cards);
-    if (combo.valid && (G.mode==='free' || canBeat(cards,G.tableCards,G.comboType))) sendAction('PLAY', cards);
+    if (!combo.valid){ toast('Kombinasi tidak valid!','err'); return; }
+    sendActionToHost('PLAY', cards); return;
+  }
+
+  if (G.mode==='single'){
+    if (cards.length!==1){ toast('Mode single — pilih 1 kartu!','err'); return; }
+    if(cards[0].r==='2'){
+      sendActionToHost('REM', cards[0]); return;
+    }
+    if (!canBeat(cards,G.tableCards,'single')){ toast('Harus suit sama & lebih besar!','err'); return; }
+    sendActionToHost('PLAY', cards); return;
+  }
+
+  if (G.mode==='combo'){
+    const combo=detectCombo(cards);
+    if (!combo.valid){ toast('Bukan kombinasi valid!','err'); return; }
+    const tc=detectCombo(G.tableCards);
+    if (combo.type!==tc.type&&!(combo.type==='straight'&&tc.type==='straight')&&!(combo.type==='straightflush'&&tc.type==='straight')){
+      toast('Harus lawan kombinasi jenis sama!','err'); return;
+    }
+    if (!canBeat(cards,G.tableCards,tc.type)){ toast('Kombinasi kurang besar!','err'); return; }
+    sendActionToHost('PLAY', cards); return;
+  }
+
+  if (G.mode==='free'){
+    const combo=detectCombo(cards);
+    if (!combo.valid){ toast('Kombinasi tidak valid!','err'); return; }
+    sendActionToHost('PLAY', cards);
   }
 }
 
-function humanPass() { if (G.turn===MY_PID) sendAction('PASS', null); }
-function humanRem() { const rems = getSelectedCards().filter(c=>c.r==='2'); if(rems.length) sendAction('REM', rems[0]); }
-function humanBomb() { const bomb = findBomb(G.hands[MY_PID]); if(bomb) sendAction('BOMB', bomb); }
-function humanSkipBomb() { sendAction('SKIP_BOMB', null); }
+function humanPass() {
+  if (G.turn!==MY_PID) return;
+  if (G.remActive&&!G.skippedBomb[MY_PID]&&!G.usedRem[MY_PID]){ humanSkipBomb(); return; }
+  sendActionToHost('PASS', null);
+}
 
-function sendAction(actionType, data) {
-  if(IS_HOST) processAction(MY_PID, actionType, data);
-  else roomChannel.send({ type: 'broadcast', event: 'player_action', payload: { pid: MY_PID, actionType, data } });
+function humanRem() {
+  if (G.turn!==MY_PID) return;
+  if (G.mode!=='single'){ toast('REM hanya di mode single!','err'); return; }
+  if (!G.tableCards.length){ toast('Meja kosong, tidak perlu REM!','err'); return; }
+  const remCards = getSelectedCards().filter(c=>c.r==='2');
+  if (!remCards.length){ toast('Pilih kartu 2 untuk REM!','err'); return; }
+  sendActionToHost('REM', remCards[0]);
+}
+
+function humanBomb() {
+  if (!G.remActive){ toast('BOM hanya saat ada REM aktif!','err'); return; }
+  if (G.finished.includes(MY_PID)) return;
+  if (G.usedRem[MY_PID]){ toast('Pernah REM — tidak bisa BOM!','err'); return; }
+  if (G.skippedBomb[MY_PID]){ toast('Sudah skip BOM di ronde ini!','err'); return; }
+  const bomb=findBomb(G.hands[MY_PID]);
+  if (!bomb){ toast('Tidak punya kartu BOM!','err'); return; }
+  sendActionToHost('BOMB', bomb);
+}
+
+function humanSkipBomb() {
+  if (!G.remActive||G.finished.includes(MY_PID)) return;
+  sendActionToHost('SKIP_BOMB', null);
 }
 
 function processAction(pid, actionType, data) {
   if(!IS_HOST) return;
-  selected = []; // Paksa reset selection agar tidak tersangkut
-  if(actionType === 'PLAY') {
-    data.forEach(c => {
-      const idx = G.hands[pid].findIndex(x => x.r===c.r && x.s===c.s);
-      if(idx>=0) G.hands[pid].splice(idx,1);
-    });
-    G.tableCards = data; G.tablePlayer = pid; G.passCount = 0;
-    const combo = detectCombo(data);
-    G.mode = combo.type==='single'?'single':'combo'; G.comboType = combo.type;
-    G.roundStacks.push({pid, cards:[...data]}); G.firstPlay = false;
-    if(!G.hands[pid].length) { endGame(pid); return; }
-    nextTurn(pid);
-  } else if(actionType === 'PASS') {
-    G.passCount++;
-    const active = [0,1,2,3].filter(i=>!G.finished.includes(i));
-    if(G.passCount >= active.length - 1) {
-      G.tableCards = []; G.mode = 'free'; G.passCount = 0; G.turn = G.tablePlayer;
-    } else {
-      nextTurn(pid);
-    }
-  } else if(actionType === 'REM') {
-    const idx = G.hands[pid].findIndex(x => x.r===data.r && x.s===data.s);
-    if(idx>=0) G.hands[pid].splice(idx,1);
-    G.remActive = true; G.tableCards = [data]; G.tablePlayer = pid;
-    if(!G.hands[pid].length) { endGame(pid); return; }
-    nextTurn(pid);
-  } else if(actionType === 'BOMB') {
-    endGame(pid); return;
+
+  if(actionType === 'PLAY') playCards(pid, data);
+  else if(actionType === 'PASS') doPass(pid);
+  else if(actionType === 'REM') doRem(pid, data);
+  else if(actionType === 'BOMB') doBomb(pid, data);
+  else if(actionType === 'SKIP_BOMB') {
+    G.skippedBomb[pid] = true;
+    log('info', `ℹ️ ${PLAYER_NAMES[pid]} skip BOM.`);
+    checkBombWindowNext(pid);
   }
+
   if(IS_ONLINE) broadcastGameState();
 }
 
-function nextTurn(fromPid) {
-  G.turn = (fromPid + 1) % 4;
-  while(G.finished.includes(G.turn)) G.turn = (G.turn + 1) % 4;
-  if(IS_ONLINE && IS_HOST) broadcastGameState();
-  if (IS_HOST && isBot(G.turn)) setTimeout(runAI, 800);
-}
-
-function broadcastGameState() {
-  if(IS_HOST && roomChannel) roomChannel.send({ type: 'broadcast', event: 'game_state', payload: { G, PLAYER_NAMES } });
-}
-
-function syncGameStateFromHost(payload) {
-  G = payload.G; PLAYER_NAMES = payload.PLAYER_NAMES;
-  selected = []; // PERBAIKAN BUG: Hapus seleksi lokal setiap ada pembaruan state
+function playCards(pid, cards) {
+  const combo=detectCombo(cards);
+  for (const c of cards){
+    const idx=G.hands[pid].findIndex(x=>x.r===c.r&&x.s===c.s);
+    if (idx>=0){
+      G.hands[pid].splice(idx,1);
+    }
+  }
+  
   handOrder = G.hands[MY_PID].map((_,i)=>i);
-  renderAll();
+  selected = [];
+
+  G.tableCards=cards; G.tablePlayer=pid; G.passCount=0;
+  G.remActive=false; G.bombOpportunity=false;
+  G.mode=combo.type==='single'?'single':'combo';
+  G.comboType=combo.type==='single'?null:combo.type;
+  G.roundStacks.push({pid, cards:[...cards], type:combo.type});
+  log('play',`${PLAYER_NAMES[pid]}: ${cardsStr(cards)} [${combo.type.toUpperCase()}]`);
+  G.firstPlay=false;
+  playSound('card'); vibrate([15,10,15]);
+  setTimeout(animateLastTableCard, 30);
+  
+  if (!G.hands[pid].length){
+    G.finished.push(pid);
+    if (G.lastWinner === null) G.lastWinner = pid;
+    log('win',`🏆 ${PLAYER_NAMES[pid]} habis kartu! #${G.finished.length}`);
+    if (G.finished.length>=1){ endGame(); return; }
+  }
+  nextTurn(pid);
 }
 
-function endGame(winnerPid) {
-  G.isGameOver = true; G.lastWinner = winnerPid;
-  document.getElementById('resultList').innerHTML = `<div style="color:#2ecc71; font-weight:bold;">🏆 Pemenang: ${PLAYER_NAMES[winnerPid]}</div>`;
-  document.getElementById('gameOverlay').classList.remove('hidden');
-  document.getElementById('btnNextRound').style.display = IS_HOST ? 'block' : 'none';
-  if(IS_ONLINE && IS_HOST) broadcastGameState();
+function doPass(pid){
+  log('pass',`${PLAYER_NAMES[pid]} — PASS`);
+  if(pid===MY_PID){ playSound('pass'); vibrate(8); }
+  G.passCount++;
+  const active=[0,1,2,3].filter(i=>!G.finished.includes(i));
+  const others=active.filter(i=>i!==G.tablePlayer);
+  if (G.passCount>=others.length){ winRound(G.tablePlayer); return; }
+  if (G.remActive&&G.bombOpportunity&&!G.skippedBomb[pid]&&!G.usedRem[pid]){
+    G.skippedBomb[pid]=true;
+    log('info',`ℹ️ ${PLAYER_NAMES[pid]} skip BOM.`);
+  }
+  nextTurn(pid);
 }
 
-function findBomb(hand) {
-  const rc = {}; hand.forEach(c => rc[c.r] = (rc[c.r]||0)+1);
+function doRem(pid,card){
+  const idx=G.hands[pid].findIndex(x=>x.r===card.r&&x.s===card.s);
+  if(idx>=0) G.hands[pid].splice(idx,1);
+  
+  handOrder = G.hands[MY_PID].map((_,i)=>i);
+  selected = [];
+
+  G.usedRem[pid]=true; 
+  G.skippedBomb = [false, false, false, false];
+  
+  G.remActive=true; G.remPlayer=pid;
+  G.tableCards=[card]; G.tablePlayer=pid; G.bombOpportunity=true; G.passCount=0;
+  G.roundStacks.push({pid, cards:[card], type:'rem'});
+  log('rem',`💣 ${PLAYER_NAMES[pid]} REM! ${cardStr(card)}`);
+  playSound('rem'); vibrate([30,20,30,20,60]);
+  setTimeout(()=>{ animateLastTableCard(); animateRem(); }, 30);
+  log('system','⚡ Jendela BOM terbuka!');
+  if (!G.hands[pid].length){
+    G.finished.push(pid); 
+    if (G.lastWinner === null) G.lastWinner = pid;
+    log('win',`🏆 ${PLAYER_NAMES[pid]} habis kartu!`); 
+  }
+  checkBombWindow(pid);
+}
+
+function checkBombWindow(remPid){
+  const order=getOrderFrom(remPid).filter(p=>p!==remPid&&!G.finished.includes(p));
+  processBombOrder(order, 0);
+}
+
+function checkBombWindowNext(currentPid) {
+  const order=getOrderFrom(G.remPlayer).filter(p=>p!==G.remPlayer&&!G.finished.includes(p));
+  const idx = order.indexOf(currentPid);
+  if(idx !== -1 && idx < order.length - 1) {
+    processBombOrder(order, idx + 1);
+  } else {
+    winRound(G.remPlayer);
+  }
+}
+
+function processBombOrder(order, stepIdx) {
+  if(stepIdx >= order.length) {
+    winRound(G.remPlayer);
+    return;
+  }
+
+  const pid = order[stepIdx];
+  if (G.usedRem[pid] || G.skippedBomb[pid]) {
+    processBombOrder(order, stepIdx + 1);
+    return;
+  }
+
+  if (isBot(pid)) {
+    const bomb = findBomb(G.hands[pid]);
+    const bThresh = DIFFICULTY==='hard'?0.1:DIFFICULTY==='medium'?0.35:0.6;
+    if (bomb && Math.random() > bThresh) {
+      setTimeout(()=>doBomb(pid, bomb), 600);
+    } else {
+      G.skippedBomb[pid] = true;
+      log('info', `ℹ️ ${PLAYER_NAMES[pid]} skip BOM.`);
+      processBombOrder(order, stepIdx + 1);
+    }
+  } else {
+    G.turn = pid;
+    renderAll();
+    updateHint();
+    if(IS_ONLINE) broadcastGameState();
+  }
+}
+
+function doBomb(pid,bomb){
+  for (const c of bomb){
+    const idx=G.hands[pid].findIndex(x=>x.r===c.r&&x.s===c.s);
+    if (idx>=0) G.hands[pid].splice(idx,1);
+  }
+  const btype=isQuartet(bomb)?'QUARTET':'STRAIGHT FLUSH';
+  log('bomb',`💥 ${PLAYER_NAMES[pid]} BOM! ${btype}: ${cardsStr(bomb)}`);
+  G.roundStacks.push({pid, cards:[...bomb], type:'bomb'});
+  playSound('bomb'); vibrate([50,30,50,30,100,30,150]);
+  setTimeout(animateBomb, 30);
+  log('win',`🏆 ${PLAYER_NAMES[pid]} MENANG GAME!`);
+  G.remActive=false; G.bombOpportunity=false;
+  G.finished=[pid]; 
+  G.lastWinner = pid;
+  endGame();
+}
+
+function findBomb(hand){
+  if(!hand) return null;
+  const rc={};
+  for (const c of hand) rc[c.r]=(rc[c.r]||0)+1;
   for (const [r,cnt] of Object.entries(rc)) if (cnt===4) return hand.filter(c=>c.r===r);
+  const bySuit={};
+  for (const c of hand){ if(!bySuit[c.s]) bySuit[c.s]=[]; bySuit[c.s].push(c); }
+  for (const [,cards] of Object.entries(bySuit)){
+    const sorted=cards.filter(c=>c.r!=='2').sort((a,b)=>RANKS.indexOf(a.r)-RANKS.indexOf(b.r));
+    for (let len=5;len<=sorted.length;len++){
+      for (let start=0;start<=sorted.length-len;start++){
+        const slice=sorted.slice(start,start+len);
+        let ok=true;
+        for (let i=1;i<slice.length;i++) if(RANKS.indexOf(slice[i].r)-RANKS.indexOf(slice[i-1].r)!==1){ok=false;break;}
+        if (ok) return slice;
+      }
+    }
+  }
   return null;
 }
 
-function renderAll() {
-  renderHand(); renderTable(); renderNameplates(); renderButtons();
+function winRound(pid){
+  if(G.isGameOver) return;
+  log('win',`🏆 ${PLAYER_NAMES[pid]} menang ronde!`);
+  playSound('win'); vibrate([20,10,20]);
+  animateWinNameplate(pid);
+  G.tableCards=[]; G.tablePlayer=-1; G.passCount=0; G.roundStacks=[];
+  G.mode='free'; G.comboType=null; G.remActive=false; G.bombOpportunity=false;
+  G.turn=pid;
+  if (G.finished.includes(pid)){ nextActivePlayer(pid); return; }
+  log('system',`▶ ${PLAYER_NAMES[pid]} bebas main`);
+  renderAll(); updateHint();
+  if(IS_ONLINE) broadcastGameState();
+  if (IS_HOST && isBot(pid)) setTimeout(runAI,900);
 }
 
-function renderHand() {
-  const wrap = document.getElementById('handCardsWrap'); wrap.innerHTML = '';
+function nextTurn(fromPid){
+  if(G.isGameOver) return;
+  const next=getNextActive(fromPid);
+  if (next===-1){ endGame(); return; }
+  G.turn=next; renderAll(); updateHint();
+  if(IS_ONLINE && IS_HOST) broadcastGameState();
+  if (IS_HOST && isBot(next)) setTimeout(runAI,700);
+}
+
+function nextActivePlayer(pid){
+  if(G.isGameOver) return;
+  const next=getNextActive(pid);
+  if (next===-1){ endGame(); return; }
+  G.turn=next; renderAll(); updateHint();
+  if(IS_ONLINE && IS_HOST) broadcastGameState();
+  if (IS_HOST && isBot(next)) setTimeout(runAI,900);
+}
+
+function getNextActive(fromPid){
+  for (let i=1;i<=3;i++){
+    const p=(fromPid+i)%4;
+    if (!G.finished.includes(p)&&G.hands[p].length>0) return p;
+  }
+  return -1;
+}
+
+function getOrderFrom(pid){
+  const o=[];
+  for (let i=1;i<=3;i++) o.push((pid+i)%4);
+  return o;
+}
+
+function endGame(){
+  const remaining=[0,1,2,3].filter(p=>!G.finished.includes(p));
+  remaining.sort((a,b)=>{
+    const lenDiff=G.hands[a].length-G.hands[b].length;
+    if(lenDiff!==0) return lenDiff;
+    const maxVal=hand=>hand.length?Math.max(...hand.map(x=>cardVal(x))):0;
+    return maxVal(G.hands[a])-maxVal(G.hands[b]);
+  });
+  for(const p of remaining) G.finished.push(p);
+  if (G.lastWinner === null && G.finished.length > 0) G.lastWinner = G.finished[0];
+  
+  G.isGameOver=true;
+  log('system','🎮 GAME SELESAI!');
+  renderAll();
+  showGameOverUI();
+  if(IS_ONLINE && IS_HOST) broadcastGameState();
+}
+
+function showGameOverUI() {
+  const rl=document.getElementById('resultList');
+  rl.innerHTML='';
+  const medals=['🥇','🥈','🥉','4️⃣'];
+  for(let i=0;i<G.finished.length;i++){
+    const pid=G.finished[i];
+    const sisa=G.hands[pid].length;
+    const maxC=sisa?G.hands[pid].reduce((a,b)=>cardVal(a)>cardVal(b)?a:b):null;
+    const info=i===0?'Habis kartu!':`${sisa} kartu sisa${maxC?' · tertinggi: '+maxC.r+maxC.s:''}`;
+    const row=document.createElement('div');
+    row.className='result-row';
+    row.innerHTML=`<span class="result-medal">${medals[i]}</span>
+      <div style="display:flex;flex-direction:column">
+        <span class="result-name" style="color:${COLORS[pid]}">${PLAYER_NAMES[pid]}</span>
+        <small style="color:rgba(255,255,255,0.4);font-size:0.65rem">${info}</small>
+      </div>`;
+    rl.appendChild(row);
+  }
+  
+  const btnNext = document.getElementById('btnNextRound');
+  if (IS_ONLINE) {
+    btnNext.style.display = IS_HOST ? 'inline-block' : 'none';
+  } else {
+    btnNext.style.display = 'inline-block';
+  }
+
+  document.getElementById('gameOverlay').classList.add('show');
+}
+
+function runAI(){
+  if(!IS_HOST || G.isGameOver) return;
+  const pid=G.turn;
+  if(!isBot(pid) || G.finished.includes(pid)) return;
+  const hand=G.hands[pid];
+  if(!hand.length){ nextTurn(pid); return; }
+  
+  if(G.firstPlay && G.gameCount === 1){ 
+    const sc=hand.find(c=>c.r==='3'&&c.s==='♦'); 
+    playCards(pid,[sc||hand[0]]); 
+    return; 
+  }
+  
+  if(DIFFICULTY==='easy'){
+    if(G.mode==='free') aiEasyFree(pid);
+    else if(G.mode==='single') aiEasySingle(pid);
+    else aiEasyCombo(pid);
+  } else if(DIFFICULTY==='medium'){
+    if(G.mode==='free') aiMediumFree(pid);
+    else if(G.mode==='single') aiMediumSingle(pid);
+    else aiMediumCombo(pid);
+  } else {
+    if(G.mode==='free') aiHardFree(pid);
+    else if(G.mode==='single') aiHardSingle(pid);
+    else aiHardCombo(pid);
+  }
+}
+
+function aiEasyFree(pid){ playCards(pid,[G.hands[pid][0]]); }
+function aiEasySingle(pid){
+  const hand=G.hands[pid], table=G.tableCards[0];
+  const twos=hand.filter(c=>c.r==='2');
+  if(twos.length&&Math.random()>0.75){ doRem(pid,twos[0]); return; }
+  const cands=hand.filter(c=>c.r!=='2'&&c.s===table.s&&cardVal(c)>cardVal(table));
+  if(!cands.length){ doPass(pid); return; }
+  playCards(pid,[cands[0]]);
+}
+function aiEasyCombo(pid){
+  const tc=detectCombo(G.tableCards), hand=G.hands[pid];
+  const beatable=findAllCombos(hand,tc.type,G.tableCards.length).filter(x=>canBeat(x,G.tableCards,tc.type));
+  if(!beatable.length){ doPass(pid); return; }
+  playCards(pid,beatable[0]);
+}
+
+function aiMediumFree(pid){
+  const hand=G.hands[pid];
+  const minOpponent=Math.min(...[0,1,2,3].filter(p=>p!==pid&&!G.finished.includes(p)).map(p=>G.hands[p].length));
+  if(minOpponent<=4){ const tris=findBestCombo(hand,'tris'); if(tris){ playCards(pid,tris); return; } }
+  const straight=findBestCombo(hand,'straight');
+  if(straight && Math.random()>0.5){ playCards(pid,straight); return; }
+  playCards(pid,[hand[0]]);
+}
+function aiMediumSingle(pid){
+  const hand=G.hands[pid], table=G.tableCards[0];
+  const minOpponent=Math.min(...[0,1,2,3].filter(p=>p!==pid&&!G.finished.includes(p)).map(p=>G.hands[p].length));
+  const twos=hand.filter(c=>c.r==='2');
+  const shouldRem = twos.length && (minOpponent<=3 || hand.length<=4) && Math.random()>0.4;
+  if(shouldRem){ doRem(pid,twos[0]); return; }
+  const cands=hand.filter(c=>c.r!=='2'&&c.s===table.s&&cardVal(c)>cardVal(table));
+  if(!cands.length){ doPass(pid); return; }
+  playCards(pid,[cands[0]]);
+}
+function aiMediumCombo(pid){
+  const tc=detectCombo(G.tableCards), hand=G.hands[pid];
+  const beatable=findAllCombos(hand,tc.type,G.tableCards.length).filter(x=>canBeat(x,G.tableCards,tc.type));
+  if(!beatable.length){ doPass(pid); return; }
+  playCards(pid,beatable[0]);
+}
+
+function aiHardFree(pid){
+  const hand=G.hands[pid];
+  const opponents=[0,1,2,3].filter(p=>p!==pid&&!G.finished.includes(p));
+  const minOpp=Math.min(...opponents.map(p=>G.hands[p].length));
+  if(minOpp<=3){
+    const fh=findBestCombo(hand,'fullhouse'); if(fh){ playCards(pid,fh); return; }
+    const tris=findBestCombo(hand,'tris'); if(tris){ playCards(pid,tris); return; }
+  }
+  const nonTwo=hand.filter(c=>c.r!=='2');
+  playCards(pid,[nonTwo.length?nonTwo[0]:hand[0]]);
+}
+function aiHardSingle(pid){
+  const hand=G.hands[pid], table=G.tableCards[0];
+  const opponents=[0,1,2,3].filter(p=>p!==pid&&!G.finished.includes(p));
+  const minOpp=Math.min(...opponents.map(p=>G.hands[p].length));
+  const twos=hand.filter(c=>c.r==='2');
+  if(twos.length && (minOpp<=2 || (hand.length<=3 && twos.length))){
+    doRem(pid,twos.reduce((a,b)=>cardVal(a)>cardVal(b)?a:b)); return;
+  }
+  const cands=hand.filter(c=>c.r!=='2'&&c.s===table.s&&cardVal(c)>cardVal(table));
+  if(!cands.length){ doPass(pid); return; }
+  playCards(pid,[cands[0]]);
+}
+function aiHardCombo(pid){
+  const tc=detectCombo(G.tableCards), hand=G.hands[pid];
+  const beatable=findAllCombos(hand,tc.type,G.tableCards.length).filter(x=>canBeat(x,G.tableCards,tc.type));
+  if(!beatable.length){ doPass(pid); return; }
+  playCards(pid,beatable[0]);
+}
+
+function findBestCombo(hand, type){
+  const lens = type==='tris'?[3]:type==='fullhouse'?[5]:type==='straight'?[3,4,5]:[];
+  let best=null;
+  for(const len of lens){
+    const found=findAllCombos(hand,type,len);
+    if(found.length){
+      found.sort((a,b)=>Math.max(...a.map(cardVal))-Math.max(...b.map(cardVal)));
+      if(!best) best=found[0];
+    }
+  }
+  return best;
+}
+
+function findAllCombos(hand,type,len){
+  const results=[];
+  function combine(start,curr){
+    if (curr.length===len){
+      const cards=curr.map(i=>hand[i]);
+      const d=detectCombo(cards);
+      if (d.valid&&(d.type===type||(type==='straight'&&d.type==='straightflush'))) results.push(cards);
+      return;
+    }
+    for (let i=start;i<hand.length;i++) combine(i+1,[...curr,i]);
+  }
+  combine(0,[]);
+  return results;
+}
+
+function renderAll(){
+  renderHand();
+  renderTable();
+  renderOpponentCards();
+  renderNameplates();
+  renderStatus();
+  renderButtons();
+}
+
+function makeCardEl(c, extraClass=''){
+  const d=document.createElement('div');
+  d.className=`card ${isRed(c)?'red':'black'} ${extraClass}`;
+  d.innerHTML=`<div class="c-rank">${c.r}</div><div class="c-suit">${c.s}</div><div class="c-suit-bg">${c.s}</div>`;
+  return d;
+}
+
+function renderHand(){
+  const wrap=document.getElementById('handCardsWrap');
+  wrap.innerHTML='';
+  if (G.finished && G.finished.includes(MY_PID)){
+    wrap.innerHTML='<span style="color:#2ecc71;font-size:0.75rem;padding:20px">✅ Kartu habis! Kamu menang!</span>';
+    return;
+  }
+  
   if(!G.hands || !G.hands[MY_PID]) return;
-  handOrder.forEach((oi, vi) => {
-    const c = G.hands[MY_PID][oi]; if(!c) return;
-    const d = document.createElement('div');
-    d.className = `card ${c.s==='♦'||c.s==='♥'?'red':'black'} ${selected.includes(vi)?'selected':''}`;
-    d.innerHTML = `<div class="c-rank">${c.r}</div><div class="c-suit">${c.s}</div><div class="c-suit-bg">${c.s}</div>`;
-    d.onclick = () => toggleCard(vi);
+  const bombCards=findBomb(G.hands[MY_PID])||[];
+  const bombKeys=new Set(bombCards.map(x=>x.r+x.s));
+
+  const entries=handOrder.map((oi,vi)=>({oi,vi}));
+  const bombEntries=entries.filter(({oi})=>G.hands[MY_PID][oi] && bombKeys.has(G.hands[MY_PID][oi].r+G.hands[MY_PID][oi].s));
+  const otherEntries=entries.filter(({oi})=>G.hands[MY_PID][oi] && !bombKeys.has(G.hands[MY_PID][oi].r+G.hands[MY_PID][oi].s));
+  const displayOrder=[...bombEntries,...otherEntries];
+
+  let badgeDone=false;
+  displayOrder.forEach(({oi,vi})=>{
+    const card=G.hands[MY_PID][oi];
+    if(!card) return;
+    const isBomb=bombKeys.has(card.r+card.s);
+    const d=makeCardEl(card, selected.includes(vi)?'selected':'');
+    d.style.position='relative';
+    if(isBomb && !badgeDone){
+      const badge=document.createElement('div');
+      badge.className='bomb-badge';
+      badge.textContent=bombCards.length===4?'QUARTET':'S.FLUSH';
+      d.appendChild(badge);
+      badgeDone=true;
+    }
+    d.addEventListener('click',()=>toggleCard(vi));
+    setupDrag(d,vi);
     wrap.appendChild(d);
   });
-  document.getElementById('selInfo').textContent = selected.length ? `${selected.length} kartu` : '';
+  const sel=getSelectedCards();
+  const info=document.getElementById('selInfo');
+  if (sel.length>0){
+    const combo=detectCombo(sel);
+    info.textContent=combo.valid?`${sel.length} kartu · ${combo.type.toUpperCase()}`:`${sel.length} kartu`;
+    info.style.color=combo.valid?'#c9a84c':'rgba(255,255,255,0.4)';
+  } else { info.textContent=''; }
 }
 
-function renderTable() {
-  const wrap = document.getElementById('tableCardsWrap'); wrap.innerHTML = '';
-  if(!G.tableCards || !G.tableCards.length) { wrap.innerHTML = '<span class="table-empty-text">Meja Kosong</span>'; return; }
-  const group = document.createElement('div'); group.className = 'table-stack stack-top'; group.style.transform = 'translate(-50%,-50%)';
-  G.tableCards.forEach((c, i) => {
-    const el = document.createElement('div');
-    el.className = `card ${c.s==='♦'||c.s==='♥'?'red':'black'}`;
-    if(i>0) el.style.marginLeft = '-22px';
-    el.innerHTML = `<div class="c-rank">${c.r}</div><div class="c-suit">${c.s}</div><div class="c-suit-bg">${c.s}</div>`;
-    group.appendChild(el);
+function seedForTableCard(c, i){
+  const str = c.r + c.s + i;
+  let h = 0;
+  for (let k=0; k<str.length; k++) h = (h*31 + str.charCodeAt(k)) >>> 0;
+  return h;
+}
+
+function sortCardsForDisplay(cards){
+  return [...cards].sort((a,b)=>{
+    const rd = RANKS.indexOf(a.r)-RANKS.indexOf(b.r);
+    return rd!==0 ? rd : SUITS.indexOf(a.s)-SUITS.indexOf(b.s);
   });
-  wrap.appendChild(group);
 }
 
-function renderNameplates() {
-  for(let seat=0; seat<=3; seat++) {
+function renderTable(){
+  const wrap=document.getElementById('tableCardsWrap');
+  wrap.innerHTML='';
+  const stacks = G.roundStacks||[];
+  if (!stacks.length){
+    const s=document.createElement('span'); s.className='table-empty-text'; s.textContent='Meja Kosong';
+    wrap.appendChild(s); return;
+  }
+  const maxShow = 5;
+  const shown = stacks.slice(Math.max(0, stacks.length-maxShow));
+  const lastIdx = shown.length-1;
+
+  shown.forEach((entry,idx)=>{
+    const isTop = idx===lastIdx;
+    const back = lastIdx-idx;
+    const seed = seedForTableCard(entry.cards[0], entry.pid*100+idx);
+    let rot, dx, dy;
+    if (isTop){
+      rot = ((seed%10)-5)*0.6; dx = ((seed>>3)%10)-5; dy = ((seed>>5)%10)-5;
+    } else {
+      rot = (((seed%14)-7)) + (idx%2===0 ? -3 : 3);
+      dx = (((seed>>3)%10)-5) - back*7;
+      dy = (((seed>>5)%8)-4) - back*6;
+    }
+    const overlap = entry.cards.length>=5 ? -28 : entry.cards.length>=4 ? -24 : -20;
+    const group=document.createElement('div');
+    group.className='table-stack'+(isTop?' stack-top':' stack-old');
+    group.style.transform=`translate(-50%,-50%) translate(${dx}px,${dy}px) rotate(${rot}deg)`;
+    group.style.zIndex = idx+1;
+    const sorted = sortCardsForDisplay(entry.cards);
+    sorted.forEach((c,ci)=>{
+      const el=makeCardEl(c, isTop?'discard-top':'discard-old');
+      if (ci>0) el.style.marginLeft = overlap+'px';
+      group.appendChild(el);
+    });
+    wrap.appendChild(group);
+  });
+}
+
+function renderOpponentCards(){
+  for(let seat=1; seat<=3; seat++){
     const pid = (MY_PID + seat) % 4;
-    const np = document.getElementById(`np${seat}`); if(!np||!G.hands) continue;
-    np.classList.toggle('active', G.turn === pid);
-    document.getElementById(`npname${seat}`).textContent = seat===0?`${PLAYER_NAMES[pid]} (Kamu)`:PLAYER_NAMES[pid];
-    document.getElementById(`npcards${seat}`).textContent = `${G.hands[pid]?.length||0} kartu`;
+    const wrap=document.getElementById(`bcards${seat}`);
+    if(!wrap || !G.hands || !G.hands[pid]) continue;
+    wrap.innerHTML='';
+    const n=Math.min(G.hands[pid].length, 13);
+    for(let i=0;i<n;i++){
+      const d=document.createElement('div');
+      d.className='card-back';
+      wrap.appendChild(d);
+    }
   }
 }
 
-function renderButtons() {
-  if(!G.hands||!G.hands[MY_PID]) return;
-  const isMyTurn = G.turn === MY_PID;
-  document.getElementById('handArea').classList.toggle('disabled', !isMyTurn && !G.remActive);
-  document.getElementById('btnPlay').disabled = !isMyTurn;
-  document.getElementById('btnPass').disabled = !isMyTurn;
-
-  const hasRem = G.hands[MY_PID].some(c=>c.r==='2');
-  const btnRem = document.getElementById('btnRem');
-  btnRem.style.display = (hasRem && G.mode==='single' && G.tableCards.length) ? 'flex' : 'none';
-
-  const bomb = findBomb(G.hands[MY_PID]);
-  const btnBomb = document.getElementById('btnBomb');
-  btnBomb.style.display = (G.remActive && bomb) ? 'flex' : 'none';
+function renderNameplates(){
+  for(let seat=0; seat<=3; seat++){
+    const pid = (MY_PID + seat) % 4;
+    const np=document.getElementById(`np${seat}`);
+    if (!np || !G.finished || !G.hands || !G.hands[pid]) continue;
+    const isActive=G.turn===pid;
+    const isDone=G.finished.includes(pid);
+    np.className='nameplate'+(isActive?' active':'')+(isDone?' finished':'');
+    
+    const nameEl=document.getElementById(`npname${seat}`);
+    if(nameEl) nameEl.textContent = seat===0 ? `${PLAYER_NAMES[pid]} (Kamu)` : PLAYER_NAMES[pid];
+    
+    const nc=document.getElementById(`npcards${seat}`);
+    if (nc) nc.textContent=isDone?'Selesai ✓':`${G.hands[pid].length} kartu`;
+  }
 }
 
-function runAI() {
-  if(!IS_HOST || G.isGameOver) return;
-  const pid = G.turn; const hand = G.hands[pid];
-  if(!hand || !hand.length) return;
-  if(G.tableCards.length === 0) {
-    processAction(pid, 'PLAY', [hand[0]]);
-  } else {
-    processAction(pid, 'PASS', null);
+function renderStatus(){
+  const strip=document.getElementById('statusStrip');
+  strip.innerHTML='';
+  const mc=document.createElement('div');
+  mc.className='mode-chip';
+  if (G.remActive){ mc.className+=' chip-rem'; mc.textContent='⚡ REM AKTIF'; }
+  else if (G.mode==='single'){ mc.className+=' chip-single'; mc.textContent='SINGLE'; }
+  else if (G.mode==='combo'){ mc.className+=' chip-combo'; mc.textContent=G.comboType?G.comboType.toUpperCase():'COMBO'; }
+  else { mc.className+=' chip-free'; mc.textContent='BEBAS'; }
+  strip.appendChild(mc);
+
+  if (G.passCount>0){
+    const pc=document.createElement('div');
+    pc.className='pass-chip';
+    pc.textContent=`${G.passCount} pass`;
+    strip.appendChild(pc);
   }
+}
+
+function renderButtons(){
+  if(!G.hands || !G.hands[MY_PID]) return;
+  
+  const isMyTurn=G.turn===MY_PID&&!G.finished.includes(MY_PID);
+  const gameOver=G.isGameOver;
+  const bombWindow=G.remActive&&!G.usedRem[MY_PID]&&!G.skippedBomb[MY_PID]&&!G.finished.includes(MY_PID)&&!gameOver;
+  
+  const handEl=document.getElementById('handArea');
+  if(handEl) handEl.classList.toggle('disabled', !isMyTurn && !bombWindow);
+  
+  const canBomb=G.remActive&&!G.usedRem[MY_PID]&&!G.skippedBomb[MY_PID]&&!G.finished.includes(MY_PID)&&!gameOver;
+
+  document.getElementById('btnPlay').disabled=!isMyTurn||gameOver;
+  document.getElementById('btnPass').disabled=(!isMyTurn&&!canBomb)||gameOver;
+
+  const hasRemCard = G.hands[MY_PID].some(c=>c.r==='2');
+  const remApplicable = G.mode==='single' && G.tableCards.length>0 && !G.finished.includes(MY_PID) && !gameOver;
+  const btnRem=document.getElementById('btnRem');
+  const showRem = hasRemCard && remApplicable;
+  btnRem.style.display = showRem ? 'inline-flex' : 'none';
+  btnRem.disabled = !showRem || !isMyTurn;
+
+  const bombCards = findBomb(G.hands[MY_PID]);
+  const btnBomb=document.getElementById('btnBomb');
+  const showBomb = canBomb && !!bombCards;
+  btnBomb.style.display = showBomb ? 'inline-flex' : 'none';
+  btnBomb.disabled = !showBomb;
+
+  document.getElementById('btnSkipBomb').style.display=canBomb?'inline-flex':'none';
+}
+
+function updateHint(){
+  const el=document.getElementById('hintBar');
+  if (G.remActive&&!G.usedRem[MY_PID]&&!G.skippedBomb[MY_PID]&&!G.finished.includes(MY_PID)){
+    el.innerHTML=`<span class="danger">⚡ REM aktif!</span> Tekan <span class="hl">💥 BOM</span> untuk counter, atau <span class="hl">❌ Skip</span>`;
+    return;
+  }
+  if (G.finished && G.finished.includes(MY_PID)){ el.innerHTML=''; return; }
+  if (G.turn!==MY_PID){ el.innerHTML=`<span>Menunggu ${PLAYER_NAMES[G.turn]}...</span>`; return; }
+  if (G.mode==='single'&&G.tableCards.length)
+    el.innerHTML=`Pilih <span class="hl">kartu suit sama & lebih besar</span>, atau <span class="hl">kartu 2</span> untuk REM`;
+  else if (G.mode==='combo')
+    el.innerHTML=`Lawan dengan <span class="hl">${G.comboType?.toUpperCase()}</span> yang lebih besar`;
+  else
+    el.innerHTML=`Bebas! Pilih <span class="hl">1 kartu</span> atau <span class="hl">kombinasi</span>`;
+}
+
+function log(type,msg){
+  if(!G.logs) G.logs = [];
+  G.logs.push({type, msg});
+  renderLogFromState();
+}
+
+function renderLogFromState(){
+  const el=document.getElementById('logScroll');
+  el.innerHTML = '';
+  if(!G.logs) return;
+  G.logs.forEach(item => {
+    const d=document.createElement('div');
+    d.className=`log-line ${item.type}`;
+    d.textContent=item.msg;
+    el.appendChild(d);
+  });
+  el.scrollTop=el.scrollHeight;
+}
+
+function clearLog(){ 
+  if(G) G.logs = []; 
+  document.getElementById('logScroll').innerHTML=''; 
+}
+function toggleLog(){ document.getElementById('logPanel').classList.toggle('open'); }
+
+let toastTimer=null;
+function toast(msg,type=''){
+  const el=document.getElementById('toast');
+  el.textContent=msg;
+  el.className='show'+(type==='err'?' toast-err':'');
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>{ el.className=''; },2200);
+}
+
+function toggleRules(){ document.getElementById('rulesOverlay').classList.toggle('open'); }
+
+function animateLastTableCard(){
+  const stacks = document.querySelectorAll('#tableCardsWrap .table-stack');
+  if(!stacks.length) return;
+  const lastStack = stacks[stacks.length-1];
+  const cards = lastStack.querySelectorAll('.card');
+  cards.forEach((el,i)=>{
+    el.style.animationDelay = (i*0.05)+'s';
+    el.classList.remove('card-flyin-anim');
+    void el.offsetWidth;
+    el.classList.add('card-flyin-anim');
+  });
+}
+
+function animateRem(){
+  const wrap = document.getElementById('tableCardsWrap');
+  wrap.classList.remove('table-rem-anim');
+  void wrap.offsetWidth;
+  wrap.classList.add('table-rem-anim');
+  setTimeout(()=> wrap.classList.remove('table-rem-anim'), 600);
+}
+
+function animateBomb(){
+  const table = document.getElementById('gameTable');
+  table.classList.remove('table-bomb-anim');
+  void table.offsetWidth;
+  table.classList.add('table-bomb-anim');
+  setTimeout(()=> table.classList.remove('table-bomb-anim'), 900);
+}
+
+function animateWinNameplate(pid){
+  const seat = (pid - MY_PID + 4) % 4;
+  const np = document.getElementById('np'+seat);
+  if(!np) return;
+  np.classList.remove('np-win-anim');
+  void np.offsetWidth;
+  np.classList.add('np-win-anim');
+  setTimeout(()=> np.classList.remove('np-win-anim'), 1600);
+}
+
+function animateDealHand(){
+  setTimeout(()=>{
+    const cards = document.querySelectorAll('#handCardsWrap .card');
+    cards.forEach((el,i)=>{
+      el.style.animationDelay = (i*0.04)+'s';
+      el.classList.add('card-deal-anim');
+    });
+  }, 50);
+}
+
+const AudioCtx = window.AudioContext || window.webkitAudioContext;
+let _actx = null;
+
+function getAudioCtx(){
+  if(!_actx) _actx = new AudioCtx();
+  if(_actx.state === 'suspended') _actx.resume();
+  return _actx;
+}
+
+function playSound(type){
+  try {
+    const ctx = getAudioCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain); gain.connect(ctx.destination);
+
+    if(type === 'card'){
+      osc.type = 'sine'; osc.frequency.setValueAtTime(800, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(300, ctx.currentTime + 0.08);
+      gain.gain.setValueAtTime(0.18, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.1);
+      osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.1);
+    }
+    else if(type === 'select'){
+      osc.type = 'sine'; osc.frequency.setValueAtTime(1100, ctx.currentTime);
+      gain.gain.setValueAtTime(0.08, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.06);
+      osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.06);
+    }
+    else if(type === 'rem'){
+      osc.type = 'sawtooth'; osc.frequency.setValueAtTime(600, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(150, ctx.currentTime + 0.25);
+      gain.gain.setValueAtTime(0.25, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+      osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.3);
+    }
+    else if(type === 'bomb'){
+      const bufSize = ctx.sampleRate * 0.5;
+      const buf = ctx.createBuffer(1, bufSize, ctx.sampleRate);
+      const data = buf.getChannelData(0);
+      for(let i=0;i<bufSize;i++) data[i]=(Math.random()*2-1)*Math.pow(1-(i/bufSize),1.5);
+      const src = ctx.createBufferSource();
+      src.buffer = buf;
+      const gn = ctx.createGain();
+      gn.gain.setValueAtTime(0.6, ctx.currentTime);
+      gn.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime+0.5);
+      src.connect(gn); gn.connect(ctx.destination);
+      src.start(); src.stop(ctx.currentTime+0.5);
+    }
+    else if(type === 'win'){
+      [523,659,784,1047].forEach((freq,i)=>{
+        setTimeout(()=>{
+          try{
+            const cx=getAudioCtx(), o=cx.createOscillator(), g=cx.createGain();
+            o.connect(g); g.connect(cx.destination);
+            o.type='sine'; o.frequency.value=freq;
+            g.gain.setValueAtTime(0.15,cx.currentTime);
+            g.gain.exponentialRampToValueAtTime(0.001,cx.currentTime+0.2);
+            o.start(cx.currentTime); o.stop(cx.currentTime+0.2);
+          }catch(e){}
+        }, i*80);
+      });
+    }
+    else if(type === 'pass'){
+      osc.type = 'sine'; osc.frequency.setValueAtTime(400, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(250, ctx.currentTime + 0.12);
+      gain.gain.setValueAtTime(0.08, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12);
+      osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.12);
+    }
+  } catch(e){}
+}
+
+function vibrate(pattern){
+  try{ if(navigator.vibrate) navigator.vibrate(pattern); }catch(e){}
 }
 </script>
 </body>
