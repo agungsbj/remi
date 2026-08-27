@@ -370,7 +370,7 @@ body {
   <div id="menuOverlay">
     <div id="menuTitle">♠ REMI ONLINE ♥</div>
     
-    <!-- Hidden Supabase Config Form (Sudah di-hardcode) -->
+    <!-- Hidden Supabase Config Form -->
     <div class="menu-card" style="display:none;">
       <h3>1. Konfigurasi Supabase (Online)</h3>
       <input type="text" id="cfgUrl" class="menu-input">
@@ -767,10 +767,16 @@ function syncGameStateFromHost(payload) {
   }
 
   renderAll();
+  renderLogFromState();
   updateHint();
 }
 
 function sendActionToHost(actionType, data) {
+  // Optimistic UI Update: Langsung matikan kontrol lokal agar terasa responsif tanpa delay
+  document.getElementById('handArea').classList.add('disabled');
+  document.getElementById('btnPlay').disabled = true;
+  document.getElementById('btnPass').disabled = true;
+
   if(IS_HOST) {
     processAction(MY_PID, actionType, data);
   } else {
@@ -839,6 +845,7 @@ function initNewGameData() {
     finished: [],
     firstPlay: true,
     isGameOver: false,
+    logs: [] // Menyimpan log ke dalam state
   };
 
   selected = [];
@@ -1648,14 +1655,28 @@ function updateHint(){
 // LOGS & UTILS
 // ═══════════════════════════════════════════════════════
 function log(type,msg){
+  if(!G.logs) G.logs = [];
+  G.logs.push({type, msg});
+  renderLogFromState();
+}
+
+function renderLogFromState(){
   const el=document.getElementById('logScroll');
-  const d=document.createElement('div');
-  d.className=`log-line ${type}`;
-  d.textContent=msg;
-  el.appendChild(d);
+  el.innerHTML = '';
+  if(!G.logs) return;
+  G.logs.forEach(item => {
+    const d=document.createElement('div');
+    d.className=`log-line ${item.type}`;
+    d.textContent=item.msg;
+    el.appendChild(d);
+  });
   el.scrollTop=el.scrollHeight;
 }
-function clearLog(){ document.getElementById('logScroll').innerHTML=''; }
+
+function clearLog(){ 
+  if(G) G.logs = []; 
+  document.getElementById('logScroll').innerHTML=''; 
+}
 function toggleLog(){ document.getElementById('logPanel').classList.toggle('open'); }
 
 let toastTimer=null;
