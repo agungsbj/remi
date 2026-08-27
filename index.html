@@ -282,15 +282,8 @@ body {
 .rule-section .danger { color: #e74c3c; font-weight: 600; }
 .rule-section .good { color: #2ecc71; font-weight: 600; }
 
-.rank-row { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; font-size: 0.68rem; color: rgba(255,255,255,0.5); }
-.rcard { background: #faf8f2; color: #1a1a2e; border-radius: 4px; padding: 2px 6px; font-size: 0.68rem; font-weight: 700; border: 1px solid #e8e0d0; }
-.rcard.red { color: #c0392b; }
-.suit-row { display: flex; gap: 8px; margin-top: 2px; }
-.suit-item { display: flex; align-items: center; gap: 4px; font-size: 0.7rem; color: rgba(255,255,255,0.6); }
-
 /* ── ANIMASI ── */
 @keyframes cardDeal { from { transform: translateY(-40px) scale(0.8); opacity: 0; } to { transform: translateY(0) scale(1); opacity: 1; } }
-@keyframes cardPlay { 0% { transform: scale(1); } 40% { transform: scale(1.12) translateY(-6px); } 100% { transform: scale(1); } }
 @keyframes cardFlyIn { from { transform: translateY(-60px) scale(0.7) rotate(-5deg); opacity: 0; } to { transform: translateY(0) scale(1) rotate(0deg); opacity: 1; } }
 @keyframes remShake { 0%,100% { transform: translateX(0); } 20% { transform: translateX(-6px) rotate(-2deg); } 40% { transform: translateX(6px) rotate(2deg); } 60% { transform: translateX(-4px); } 80% { transform: translateX(4px); } }
 @keyframes bombFlash { 0% { background: rgba(230,126,34,0); } 30% { background: rgba(230,126,34,0.25); } 100% { background: rgba(230,126,34,0); } }
@@ -368,9 +361,8 @@ body {
 <div id="gameTable">
   <!-- MAIN MENU OVERLAY -->
   <div id="menuOverlay">
-    <div id="menuTitle">♠ REMI ONLINE ♥</div>
+    <div id="menuTitle">♠ REMI ONLINE V3 ♥</div>
     
-    <!-- Hidden Supabase Config Form -->
     <div class="menu-card" style="display:none;">
       <h3>1. Konfigurasi Supabase (Online)</h3>
       <input type="text" id="cfgUrl" class="menu-input">
@@ -378,7 +370,6 @@ body {
       <button class="btn btn-play" onclick="saveSupabaseConfig()">Simpan & Hubungkan</button>
     </div>
 
-    <!-- Mode Selection -->
     <div class="menu-card">
       <h3>Profil & Mode Main</h3>
       <input type="text" id="cfgName" class="menu-input" style="margin-bottom:8px;" placeholder="Nama Pemain Anda">
@@ -398,13 +389,11 @@ body {
     </div>
   </div>
 
-  <!-- LOBBY OVERLAY (Online) -->
+  <!-- LOBBY OVERLAY -->
   <div id="lobbyOverlay" class="hidden">
     <h2 style="font-family:'Playfair Display'; color:var(--gold)">ROOM LOBBY</h2>
     <div style="font-size:0.8rem; color:#fff">Kode Room: <b id="lobbyCodeDisplay" style="color:var(--gold-light)">-</b></div>
-    <div class="lobby-slots" id="lobbySlots">
-      <!-- Player slots inserted via JS -->
-    </div>
+    <div class="lobby-slots" id="lobbySlots"></div>
     <div style="font-size:0.65rem; color:rgba(255,255,255,0.5)">Slot kosong otomatis diisi Bot saat game dimulai.</div>
     <div class="menu-btn-group">
       <button class="btn btn-pass" onclick="leaveLobby()">Keluar Room</button>
@@ -412,7 +401,7 @@ body {
     </div>
   </div>
 
-  <!-- DIFFICULTY SCREEN (Offline) -->
+  <!-- DIFFICULTY SCREEN -->
   <div id="diffOverlay" class="hidden">
     <div id="diffTitle">♠ REMI OFFLINE ♥</div>
     <div id="diffSubtitle">Pilih Tingkat Kesulitan AI</div>
@@ -458,19 +447,10 @@ body {
             <li>Pemain dengan <span class="hl">3♦</span> wajib membuka dengan kartu itu (single)</li>
           </ul>
         </div>
-        <div class="rule-section">
-          <h4>▶ Mode Single & Kombinasi</h4>
-          <ul>
-            <li>Single: Lawan suit sama & lebih besar.</li>
-            <li>REM (2): Memotong ronde single (bisa REM beruntun jika punya banyak kartu 2).</li>
-            <li>BOM: Counter REM (Quartet / Straight Flush). Poin: Pemain yang pernah REM TIDAK BISA menggunakan BOM.</li>
-          </ul>
-        </div>
       </div>
     </div>
   </div>
 
-  <!-- LOG TOGGLE -->
   <button id="logToggle" onclick="toggleLog()">📋 LOG</button>
   <div id="logPanel">
     <div id="logTitle">Game Log</div>
@@ -514,7 +494,6 @@ body {
     <div class="bot-cards" id="bcards3"></div>
   </div>
 
-  <!-- CENTER TABLE -->
   <div id="tableCenter">
     <div class="table-ring"></div>
     <div id="tableCardsWrap">
@@ -523,7 +502,7 @@ body {
     <div id="statusStrip"></div>
   </div>
 
-  <!-- BOTTOM: LOCAL PLAYER -->
+  <!-- BOTTOM PLAYER -->
   <div id="handArea">
     <div style="display:flex;align-items:center;gap:8px;width:100%;justify-content:space-between;padding:0 8px;">
       <div class="nameplate" id="np0" style="background:transparent;border:none;padding:0;">
@@ -555,7 +534,6 @@ body {
     <div id="hintBar"></div>
   </div>
 
-  <!-- GAME OVER OVERLAY -->
   <div id="gameOverlay">
     <h2>GAME SELESAI</h2>
     <div class="result-list" id="resultList"></div>
@@ -569,9 +547,6 @@ body {
 </div>
 
 <script>
-// ═══════════════════════════════════════════════════════
-// CONSTANTS & GAME SETUP
-// ═══════════════════════════════════════════════════════
 const SUITS = ['♦','♣','♥','♠'];
 const RANKS = ['3','4','5','6','7','8','9','10','J','Q','K','A','2'];
 let PLAYER_NAMES = ['Saya','Pemain 1','Pemain 2','Pemain 3'];
@@ -579,7 +554,7 @@ const COLORS = ['#4a9eff','#e74c3c','#2ecc71','#f39c12'];
 
 let IS_ONLINE = false;
 let IS_HOST = false;
-let MY_PID = 0; // Local player seat index (0, 1, 2, 3)
+let MY_PID = 0;
 let supabaseClient = null;
 let roomChannel = null;
 let currentRoomCode = '';
@@ -591,7 +566,6 @@ let selected = [];
 let handOrder = [];
 let dragSrcIdx = null;
 
-// HARDCODED CREDENTIALS
 const DEFAULT_URL = 'https://gfzyunrzobnonufgzumu.supabase.co';
 const DEFAULT_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdmenl1bnJ6b2Jub251Zmd6dW11Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc3OTk3MzcsImV4cCI6MjEwMzM3NTczN30.IxVAclToBMIJizkDi3HKtoMSKddRzyHE6kmcrXfhJtQ';
 
@@ -607,17 +581,6 @@ window.addEventListener('DOMContentLoaded', () => {
   initSupabase();
 });
 
-function saveSupabaseConfig() {
-  const url = document.getElementById('cfgUrl').value.trim() || DEFAULT_URL;
-  const key = document.getElementById('cfgKey').value.trim() || DEFAULT_KEY;
-  const name = document.getElementById('cfgName').value.trim() || 'Pemain';
-  
-  localStorage.setItem('remi_sp_url', url);
-  localStorage.setItem('remi_sp_key', key);
-  localStorage.setItem('remi_sp_name', name);
-  initSupabase();
-}
-
 function initSupabase() {
   const url = localStorage.getItem('remi_sp_url') || DEFAULT_URL;
   const key = localStorage.getItem('remi_sp_key') || DEFAULT_KEY;
@@ -625,17 +588,9 @@ function initSupabase() {
     supabaseClient = window.supabase.createClient(url, key);
     document.getElementById('connStatus').textContent = '✅ Supabase Terhubung!';
     document.getElementById('connStatus').style.color = '#2ecc71';
-    document.getElementById('btnCreateRoom').disabled = false;
-    document.getElementById('btnJoinRoom').disabled = false;
-  } catch(e) {
-    document.getElementById('connStatus').textContent = '❌ Gagal Terhubung';
-    document.getElementById('connStatus').style.color = '#e74c3c';
-  }
+  } catch(e) {}
 }
 
-// ═══════════════════════════════════════════════════════
-// MULTIPLAYER ROOM & LOBBY LOGIC
-// ═══════════════════════════════════════════════════════
 function createOnlineRoom() {
   currentRoomCode = Math.floor(1000 + Math.random() * 9000).toString();
   IS_HOST = true;
@@ -666,8 +621,7 @@ function joinRoomChannel(code) {
 
   roomChannel
     .on('presence', { event: 'sync' }, () => {
-      const state = roomChannel.presenceState();
-      updateLobbyUI(state);
+      updateLobbyUI(roomChannel.presenceState());
     })
     .on('broadcast', { event: 'game_state' }, ({ payload }) => {
       syncGameStateFromHost(payload);
@@ -681,22 +635,14 @@ function joinRoomChannel(code) {
     })
     .subscribe(async (status) => {
       if (status === 'SUBSCRIBED') {
-        await roomChannel.track({
-          name: myName,
-          isHost: IS_HOST,
-          joinedAt: Date.now()
-        });
+        await roomChannel.track({ name: myName, isHost: IS_HOST, joinedAt: Date.now() });
       }
     });
 }
 
 function updateLobbyUI(state) {
   lobbyPlayers = [];
-  Object.keys(state).forEach(key => {
-    const presence = state[key][0];
-    lobbyPlayers.push(presence);
-  });
-  
+  Object.keys(state).forEach(key => lobbyPlayers.push(state[key][0]));
   lobbyPlayers.sort((a,b) => a.joinedAt - b.joinedAt);
 
   const myName = document.getElementById('cfgName').value.trim();
@@ -717,7 +663,6 @@ function updateLobbyUI(state) {
     }
     container.appendChild(slot);
   }
-
   document.getElementById('btnStartOnline').style.display = IS_HOST ? 'inline-block' : 'none';
 }
 
@@ -726,8 +671,7 @@ function leaveLobby() {
     if(IS_HOST) roomChannel.send({ type: 'broadcast', event: 'host_left', payload: {} });
     roomChannel.unsubscribe();
   }
-  IS_ONLINE = false;
-  IS_HOST = false;
+  IS_ONLINE = false; IS_HOST = false;
   document.getElementById('lobbyOverlay').classList.add('hidden');
   showMainMenu();
 }
@@ -737,9 +681,7 @@ function startOnlineGame() {
   PLAYER_NAMES = ['Bot 1','Bot 2','Bot 3','Bot 4'];
   for(let i=0; i<4; i++) {
     if(lobbyPlayers[i]) PLAYER_NAMES[i] = lobbyPlayers[i].name;
-    else PLAYER_NAMES[i] = `Bot ${i+1}`;
   }
-
   document.getElementById('lobbyOverlay').classList.add('hidden');
   initNewGameData();
   broadcastGameState();
@@ -762,6 +704,7 @@ function syncGameStateFromHost(payload) {
   document.getElementById('diffOverlay').classList.add('hidden');
   document.getElementById('gameOverlay').classList.remove('show');
   
+  // Resync urutan visual kartu jika ada perubahan jumlah
   if(handOrder.length !== G.hands[MY_PID].length) {
     handOrder = G.hands[MY_PID].map((_,i)=>i);
   }
@@ -772,11 +715,6 @@ function syncGameStateFromHost(payload) {
 }
 
 function sendActionToHost(actionType, data) {
-  // Optimistic UI Update: Langsung matikan kontrol lokal agar terasa responsif tanpa delay
-  document.getElementById('handArea').classList.add('disabled');
-  document.getElementById('btnPlay').disabled = true;
-  document.getElementById('btnPass').disabled = true;
-
   if(IS_HOST) {
     processAction(MY_PID, actionType, data);
   } else {
@@ -792,9 +730,6 @@ function handleClientActionAsHost(payload) {
   processAction(payload.pid, payload.actionType, payload.data);
 }
 
-// ═══════════════════════════════════════════════════════
-// GAME INITIALIZATION & MODES
-// ═══════════════════════════════════════════════════════
 function showMainMenu() {
   document.getElementById('gameOverlay').classList.remove('show');
   document.getElementById('diffOverlay').classList.add('hidden');
@@ -803,9 +738,7 @@ function showMainMenu() {
 }
 
 function selectOfflineMode() {
-  IS_ONLINE = false;
-  IS_HOST = true;
-  MY_PID = 0;
+  IS_ONLINE = false; IS_HOST = true; MY_PID = 0;
   PLAYER_NAMES = [document.getElementById('cfgName').value.trim() || 'Kamu', 'Bot 1', 'Bot 2', 'Bot 3'];
   document.getElementById('menuOverlay').classList.add('hidden');
   document.getElementById('diffOverlay').classList.remove('hidden');
@@ -814,8 +747,6 @@ function selectOfflineMode() {
 function startGameOffline(diff) {
   DIFFICULTY = diff;
   document.getElementById('diffOverlay').classList.add('hidden');
-  const labels={'easy':'🟢 EASY','medium':'🟡 MEDIUM','hard':'🔴 HARD'};
-  document.getElementById('diffLabel').textContent = '· ' + labels[diff];
   initNewGameData();
 }
 
@@ -845,7 +776,7 @@ function initNewGameData() {
     finished: [],
     firstPlay: true,
     isGameOver: false,
-    logs: [] // Menyimpan log ke dalam state
+    logs: []
   };
 
   selected = [];
@@ -870,9 +801,6 @@ function isBot(pid) {
   return !lobbyPlayers[pid];
 }
 
-// ═══════════════════════════════════════════════════════
-// CARD HELPERS & COMBOS
-// ═══════════════════════════════════════════════════════
 const cardVal = c => RANKS.indexOf(c.r)*4 + SUITS.indexOf(c.s);
 const cardStr = c => c.r+c.s;
 const cardsStr = arr => arr.map(cardStr).join(' ');
@@ -950,9 +878,6 @@ function canBeat(played,table,tableType) {
   return false;
 }
 
-// ═══════════════════════════════════════════════════════
-// SORT & DRAG
-// ═══════════════════════════════════════════════════════
 function sortByValue(){ handOrder=[...handOrder].sort((a,b)=>cardVal(G.hands[MY_PID][a])-cardVal(G.hands[MY_PID][b])); selected=[]; renderHand(); }
 function sortBySuit(){ handOrder=[...handOrder].sort((a,b)=>{ const ca=G.hands[MY_PID][a],cb=G.hands[MY_PID][b]; const sd=SUITS.indexOf(ca.s)-SUITS.indexOf(cb.s); return sd!==0?sd:RANKS.indexOf(ca.r)-RANKS.indexOf(cb.r); }); selected=[]; renderHand(); }
 function sortByRank(){ handOrder=[...handOrder].sort((a,b)=>{ const ca=G.hands[MY_PID][a],cb=G.hands[MY_PID][b]; const rd=RANKS.indexOf(ca.r)-RANKS.indexOf(cb.r); return rd!==0?rd:SUITS.indexOf(ca.s)-SUITS.indexOf(cb.s); }); selected=[]; renderHand(); }
@@ -992,10 +917,9 @@ function toggleCard(visualIdx) {
   renderHand(); updateHint();
 }
 
-// ═══════════════════════════════════════════════════════
-// USER ACTIONS & ROUTING
-// ═══════════════════════════════════════════════════════
-function getSelectedCards() { return selected.map(vi => G.hands[MY_PID][handOrder[vi]]); }
+function getSelectedCards() { 
+  return selected.map(vi => G.hands[MY_PID][handOrder[vi]]); 
+}
 
 function humanPlay() {
   if (G.turn!==MY_PID) return;
@@ -1050,9 +974,9 @@ function humanRem() {
   if (G.turn!==MY_PID) return;
   if (G.mode!=='single'){ toast('REM hanya di mode single!','err'); return; }
   if (!G.tableCards.length){ toast('Meja kosong, tidak perlu REM!','err'); return; }
-  const remCards = selected.filter(vi=>G.hands[MY_PID][handOrder[vi]].r==='2');
+  const remCards = getSelectedCards().filter(c=>c.r==='2');
   if (!remCards.length){ toast('Pilih kartu 2 untuk REM!','err'); return; }
-  sendActionToHost('REM', G.hands[MY_PID][handOrder[remCards[0]]]);
+  sendActionToHost('REM', remCards[0]);
 }
 
 function humanBomb() {
@@ -1086,22 +1010,20 @@ function processAction(pid, actionType, data) {
   if(IS_ONLINE) broadcastGameState();
 }
 
-// ═══════════════════════════════════════════════════════
-// GAME LOGIC ENGINE (Authoritative on Host)
-// ═══════════════════════════════════════════════════════
 function playCards(pid, cards) {
   const combo=detectCombo(cards);
+  // Hapus kartu spesifik milik player berdasarkan r & s (bukan berdasarkan indeks)
   for (const c of cards){
     const idx=G.hands[pid].findIndex(x=>x.r===c.r&&x.s===c.s);
     if (idx>=0){
       G.hands[pid].splice(idx,1);
-      if (pid===MY_PID){
-        const vi=handOrder.indexOf(idx);
-        if (vi>=0) handOrder.splice(vi,1);
-        handOrder=handOrder.map(i=>i>idx?i-1:i);
-      }
     }
   }
+  
+  // Re-build handOrder lokal secara bersih
+  handOrder = G.hands[MY_PID].map((_,i)=>i);
+  selected = [];
+
   G.tableCards=cards; G.tablePlayer=pid; G.passCount=0;
   G.remActive=false; G.bombOpportunity=false;
   G.mode=combo.type==='single'?'single':'combo';
@@ -1111,7 +1033,7 @@ function playCards(pid, cards) {
   G.firstPlay=false;
   playSound('card'); vibrate([15,10,15]);
   setTimeout(animateLastTableCard, 30);
-  selected=[];
+  
   if (!G.hands[pid].length){
     G.finished.push(pid);
     log('win',`🏆 ${PLAYER_NAMES[pid]} habis kartu! #${G.finished.length}`);
@@ -1136,13 +1058,11 @@ function doPass(pid){
 
 function doRem(pid,card){
   const idx=G.hands[pid].findIndex(x=>x.r===card.r&&x.s===card.s);
-  G.hands[pid].splice(idx,1);
-  if (pid===MY_PID){
-    const vi=handOrder.indexOf(idx);
-    if (vi>=0) handOrder.splice(vi,1);
-    handOrder=handOrder.map(i=>i>idx?i-1:i);
-    selected=[];
-  }
+  if(idx>=0) G.hands[pid].splice(idx,1);
+  
+  handOrder = G.hands[MY_PID].map((_,i)=>i);
+  selected = [];
+
   G.usedRem[pid]=true; 
   G.skippedBomb = [false, false, false, false];
   
@@ -1318,9 +1238,6 @@ function endGame(){
   if(IS_ONLINE && IS_HOST) broadcastGameState();
 }
 
-// ═══════════════════════════════════════════════════════
-// AI ENGINE
-// ═══════════════════════════════════════════════════════
 function runAI(){
   if(!IS_HOST || G.isGameOver) return;
   const pid=G.turn;
@@ -1443,9 +1360,6 @@ function findAllCombos(hand,type,len){
   return results;
 }
 
-// ═══════════════════════════════════════════════════════
-// UI RENDERERS
-// ═══════════════════════════════════════════════════════
 function renderAll(){
   renderHand();
   renderTable();
@@ -1473,13 +1387,14 @@ function renderHand(){
   const bombKeys=new Set(bombCards.map(x=>x.r+x.s));
 
   const entries=handOrder.map((oi,vi)=>({oi,vi}));
-  const bombEntries=entries.filter(({oi})=>bombKeys.has(G.hands[MY_PID][oi].r+G.hands[MY_PID][oi].s));
-  const otherEntries=entries.filter(({oi})=>!bombKeys.has(G.hands[MY_PID][oi].r+G.hands[MY_PID][oi].s));
+  const bombEntries=entries.filter(({oi})=>G.hands[MY_PID][oi] && bombKeys.has(G.hands[MY_PID][oi].r+G.hands[MY_PID][oi].s));
+  const otherEntries=entries.filter(({oi})=>G.hands[MY_PID][oi] && !bombKeys.has(G.hands[MY_PID][oi].r+G.hands[MY_PID][oi].s));
   const displayOrder=[...bombEntries,...otherEntries];
 
   let badgeDone=false;
   displayOrder.forEach(({oi,vi})=>{
     const card=G.hands[MY_PID][oi];
+    if(!card) return;
     const isBomb=bombKeys.has(card.r+card.s);
     const d=makeCardEl(card, selected.includes(vi)?'selected':'');
     d.style.position='relative';
@@ -1651,9 +1566,6 @@ function updateHint(){
     el.innerHTML=`Bebas! Pilih <span class="hl">1 kartu</span> atau <span class="hl">kombinasi</span>`;
 }
 
-// ═══════════════════════════════════════════════════════
-// LOGS & UTILS
-// ═══════════════════════════════════════════════════════
 function log(type,msg){
   if(!G.logs) G.logs = [];
   G.logs.push({type, msg});
@@ -1739,9 +1651,6 @@ function animateDealHand(){
   }, 50);
 }
 
-// ═══════════════════════════════════════════════════════
-// AUDIO & VIBRATION
-// ═══════════════════════════════════════════════════════
 const AudioCtx = window.AudioContext || window.webkitAudioContext;
 let _actx = null;
 
