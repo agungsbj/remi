@@ -329,25 +329,32 @@ body {
   background: var(--card-bg);
   border: 1px solid var(--card-border);
   border-radius: 6px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
+  display: block;
+  padding: 4px 0 0 5px;
   font-weight: 700;
   cursor: pointer;
   transition: transform 0.15s, box-shadow 0.15s;
   position: relative;
   box-shadow: 1px 2px 6px rgba(0,0,0,0.3);
   flex-shrink: 0;
+  overflow: hidden;
 }
 
 .card .c-rank {
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   line-height: 1;
   font-family: 'Playfair Display', serif;
 }
 .card .c-suit {
-  font-size: 1.1rem;
+  font-size: 0.95rem;
+  line-height: 1;
+  margin-top: 1px;
+}
+.card .c-suit-bg {
+  position: absolute;
+  right: 3px; bottom: 2px;
+  font-size: 1.5rem;
+  opacity: 0.15;
   line-height: 1;
 }
 .card.red { color: var(--red); }
@@ -357,7 +364,11 @@ body {
 #tableCardsWrap .card {
   width: 48px; height: 68px;
   box-shadow: 2px 4px 10px rgba(0,0,0,0.4);
+  padding: 5px 0 0 6px;
 }
+#tableCardsWrap .card .c-rank { font-size: 0.95rem; }
+#tableCardsWrap .card .c-suit { font-size: 1.05rem; }
+#tableCardsWrap .card .c-suit-bg { font-size: 1.7rem; right: 4px; bottom: 3px; }
 
 /* ── HUMAN HAND ── */
 #handArea {
@@ -1943,7 +1954,7 @@ function renderAll(){
 function makeCardEl(c, extraClass=''){
   const d=document.createElement('div');
   d.className=`card ${isRed(c)?'red':'black'} ${extraClass}`;
-  d.innerHTML=`<div class="c-rank">${c.r}</div><div class="c-suit">${c.s}</div>`;
+  d.innerHTML=`<div class="c-rank">${c.r}</div><div class="c-suit">${c.s}</div><div class="c-suit-bg">${c.s}</div>`;
   return d;
 }
 
