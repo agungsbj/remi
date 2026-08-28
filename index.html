@@ -515,7 +515,6 @@ window.addEventListener('DOMContentLoaded', () => {
   initSupabase();
 });
 
-// AKTIFKAN AUDIO SAAT KLIK PERTAMA DI LAYAR
 window.addEventListener('click', () => {
   getAudioCtx();
 }, { once: true });
@@ -654,7 +653,7 @@ function startGameOffline(diff) {
 }
 
 function nextRoundGame() {
-  const winner = (G && G.lastWinner !== undefined) ? G.lastWinner : 0;
+  const winner = (G && G.lastWinner !== undefined && G.lastWinner !== null) ? G.lastWinner : 0;
   const nextGameCount = (G && G.gameCount) ? G.gameCount + 1 : 2;
   if (IS_ONLINE) { if (IS_HOST) { initNewGameData(nextGameCount, winner, false); broadcastGameState(); } } 
   else { initNewGameData(nextGameCount, winner, false); }
@@ -675,7 +674,6 @@ function initNewGameData(gameCount = 1, prevWinner = null, isNewSession = false)
     if (startTurn === -1) startTurn = 0;
   } else { startTurn = prevWinner; }
 
-  // Inisialisasi/Reset Skor Sesi bila mulai sesi baru
   const scores = (isNewSession || !G.sessionScores) ? [0,0,0,0] : G.sessionScores;
 
   G = {
@@ -973,7 +971,7 @@ function playCards(pid, cards) {
   G.firstPlay=false; playSound('card');
   
   if (!G.hands[pid].length){
-    G.finished.push(pid);
+    if(!G.finished.includes(pid)) G.finished.push(pid);
     if (G.lastWinner === null) G.lastWinner = pid;
     if (G.finished.length>=1){ endGame(); return; }
   }
@@ -999,13 +997,13 @@ function doRem(pid,card){
   log('rem',`💣 ${PLAYER_NAMES[pid]} REM! ${cardStr(card)}`); playSound('rem');
   
   if (!G.hands[pid].length){ 
-    G.finished.push(pid); 
+    if(!G.finished.includes(pid)) G.finished.push(pid); 
     if (G.lastWinner === null) G.lastWinner = pid;
-    if (G.finished.length >= 1) { 
-      const otherHasBomb = [0,1,2,3].some(p => p!==pid && !G.finished.includes(p) && findBomb(G.hands[p]));
-      if (!otherHasBomb) { endGame(); return; }
-    }
   }
+
+  const otherHasBomb = [0,1,2,3].some(p => p!==pid && !G.finished.includes(p) && findBomb(G.hands[p]));
+  if (!otherHasBomb) { winRound(pid); return; }
+  
   checkBombWindow(pid);
 }
 
@@ -1079,16 +1077,16 @@ function getNextActive(fromPid){
 function getOrderFrom(pid){ return [1,2,3].map(i => (pid+i)%4); }
 
 function endGame(){
-  if (G.isGameOver) return; // Prevent double calculation
+  if (G.isGameOver) return;
   
-  // Masukkan sisa pemain yang belum habis kartunya berdasarkan sisa kartu terkecil
   const remaining = [0,1,2,3].filter(p => !G.finished.includes(p));
   remaining.sort((a,b) => G.hands[a].length - G.hands[b].length);
   for(const p of remaining) G.finished.push(p);
   
-  if (G.lastWinner === null && G.finished.length > 0) G.lastWinner = G.finished[0];
+  if ((G.lastWinner === null || G.lastWinner === undefined) && G.finished.length > 0) {
+    G.lastWinner = G.finished[0];
+  }
 
-  // Hitung poin ronde saat ini tepat 1 kali
   const points = [2, 1, 0, -1];
   G.finished.forEach((p, idx) => {
     G.sessionScores[p] = (G.sessionScores[p] || 0) + (points[idx] !== undefined ? points[idx] : -1);
@@ -1105,11 +1103,10 @@ function endGame(){
 function showGameOverUI() {
   const rl=document.getElementById('resultList'); rl.innerHTML='';
   
-  // Tentukan urutan leaderboard berdasarkan skor akumulasi poin terbesar
   const leaderboard = [0, 1, 2, 3].map(pid => ({
     pid,
     name: PLAYER_NAMES[pid],
-    score: G.sessionScores[pid],
+    score: (G.sessionScores && G.sessionScores[pid] !== undefined) ? G.sessionScores[pid] : 0,
     finishPos: G.finished.indexOf(pid)
   })).sort((a,b) => b.score - a.score || a.finishPos - b.finishPos);
 
