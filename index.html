@@ -113,16 +113,34 @@ body {
 .np-name { font-size: 0.72rem; font-weight: 700; color: #fff; line-height: 1.2; }
 .np-cards { font-size: 0.62rem; color: rgba(255,255,255,0.6); line-height: 1.2; }
 
-/* ── BOT CARDS ── */
-.bot-cards { display: flex; gap: 0; }
-.card-back {
-  width: 24px; height: 34px; border-radius: 4px;
-  background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
-  border: 1px solid rgba(255,255,255,0.3); box-shadow: 1px 2px 4px rgba(0,0,0,0.5);
-  margin-right: -12px; position: relative; flex-shrink: 0;
+/* ── BOT CARDS (FAN EFFECT) ── */
+.bot-cards { 
+  display: flex; 
+  justify-content: center; 
+  align-items: center; 
+  height: 45px;
+  position: relative;
+  margin-top: 4px;
 }
-.pzone-left .bot-cards, .pzone-right .bot-cards { flex-direction: column; }
-.pzone-left .card-back, .pzone-right .card-back { width: 34px; height: 24px; margin-right: 0; margin-bottom: -10px; }
+.card-back {
+  width: 26px; 
+  height: 38px; 
+  border-radius: 4px;
+  background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+  border: 1px solid rgba(255,255,255,0.4); 
+  box-shadow: 0 3px 6px rgba(0,0,0,0.4);
+  margin-left: -16px; /* Menumpuk kartu agar kompak */
+  position: relative; 
+  flex-shrink: 0;
+  transform-origin: bottom center; /* Pivot rotasi di bagian bawah kartu */
+  transition: transform 0.2s ease;
+}
+.bot-cards .card-back:first-child { 
+  margin-left: 0; 
+}
+.pzone-left .bot-cards, .pzone-right .bot-cards { 
+  flex-direction: row; /* Ubah deret kiri & kanan jadi horizontal kipas */
+}
 
 /* ── CENTER TABLE ── */
 #tableCenter {
@@ -1310,8 +1328,19 @@ function renderOpponentCards(){
     const pid = (MY_PID + seat) % 4;
     const wrap=document.getElementById(`bcards${seat}`); if(!wrap || !G.hands[pid]) continue;
     wrap.innerHTML='';
-    for(let i=0; i<Math.min(G.hands[pid].length, 13); i++){
-      const d=document.createElement('div'); d.className='card-back'; wrap.appendChild(d);
+    const count = Math.min(G.hands[pid].length, 13);
+    
+    for(let i=0; i<count; i++){
+      const d=document.createElement('div'); 
+      d.className='card-back';
+      
+      // Kalkulasi Sudut Rotasi Kipas (Fan Angle)
+      const center = (count - 1) / 2;
+      const angle = (i - center) * 5; // Rentang rotasi per kartu
+      const translateY = Math.abs(i - center) * 2; // Efek lengkungan kipas
+      
+      d.style.transform = `rotate(${angle}deg) translateY(${translateY}px)`;
+      wrap.appendChild(d);
     }
   }
 }
