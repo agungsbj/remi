@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Mini Pool Game</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: none;
+        }
+        body, html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #111;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: sans-serif;
+        }
+        #game-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        canvas {
+            box-shadow: 0 0 20px rgba(0,0,0,0.8);
+            border-radius: 4px;
+            background: #0d5c2a;
+        }
+        #ui {
+            position: absolute;
+            top: 10px;
+            color: white;
+            font-size: 16px;
+            font-weight: bold;
+            pointer-events: none;
+            text-shadow: 1px 1px 3px black;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <div id="ui">Tarik bola putih untuk menembak</div>
+        <canvas id="poolCanvas"></canvas>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('poolCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Parameter Meja (Rasio 2:1 Landscape)
+        const TABLE_WIDTH = 800;
+        const TABLE_HEIGHT = 400;
+        const BORDER = 30;
+        const BALL_RADIUS = 10;
+
+        // Penyesuaian Canvas ke Layar
+        function resizeCanvas() {
+            const aspect = TABLE_WIDTH / TABLE_HEIGHT;
+            let w = window.innerWidth * 0.95;
+            let h = window.innerHeight * 0.95;
+
+            if (w / h > aspect) {
+                w = h * aspect;
+            } else {
+                h = w / aspect;
+            }
+
+            canvas.width = TABLE_WIDTH;
+            canvas.height = TABLE_HEIGHT;
+            canvas.style.width = w + 'px';
+            canvas.style.height = h + 'px';
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        // Kelas Bola
+        class Ball {
+            constructor(x, y, color, isCue = false) {
+                this.x = x;
+                this.y = y;
+                this.vx = 0;
+                this.vy = 0;
+                this.color = color;
+                this.isCue = isCue;
+                this.pocketed = false;
+            }
+
+            update() {
+                if (this.pocketed) return;
+
+                this.x += this.vx;
+                this.y += this.vy;
+
+                // Gesekan (Friction)
+                this.vx *= 0.985;
+                this.vy *= 0.985;
+
+                if (Math.hypot(this.vx, this.vy) < 0.05) {
+                    this.vx = 0;
+                    this.vy = 0;
+                }
+
+                // Pantulan Dinding Internal Meja
+                const minX = BORDER + BALL_RADIUS;
+                const maxX = TABLE_WIDTH - BORDER - BALL_RADIUS;
+                const minY = BORDER + BALL_RADIUS;
+                const maxY = TABLE_HEIGHT - BORDER - BALL_RADIUS;
+
+                if (this.x < minX) { this.x = minX; this.vx *= -1; }
+                if (this.x > maxX) { this.x = maxX; this.vx *= -1; }
+                if (this.y < minY) { this.y = minY; this.vy *= -1; }
+                if (this.y > maxY) { this.y = maxY; this.vy *= -1; }
+            }
+
+            draw() {
+                if (this.pocketed) return;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, BALL_RADIUS, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                ctx.fill();
+                ctx.strokeStyle = '#000';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+                ctx.closePath();
+            }
+        }
+
+        // Lubang (Pockets)
+        const pockets = [
+            { x: BORDER, y: BORDER },
+            { x: TABLE_WIDTH / 2, y: BORDER - 5 },
+            { x: TABLE_WIDTH - BORDER, y: BORDER },
+            { x: BORDER, y: TABLE_HEIGHT - BORDER },
+            { x: TABLE_WIDTH / 2, y: TABLE_HEIGHT - BORDER + 5 },
+            { x: TABLE_WIDTH - BORDER, y: TABLE_HEIGHT - BORDER }
+        ];
+
+        let balls = [];
+        let cueBall;
+
+        // Inisialisasi Posisi Bola
+        function initBalls() {
+            balls = [];
+            cueBall = new Ball(TABLE_WIDTH * 0.25, TABLE_HEIGHT / 2, 'white', true);
+            balls.push(cueBall);
+
+            // Segitiga Bola
+            const startX = TABLE_WIDTH * 0.7;
+            const startY = TABLE_HEIGHT / 2;
+            const colors = ['red', 'yellow', 'blue', 'purple', 'orange', 'green', 'maroon', 'black'];
+            let colorIdx = 0;
+
+            const rows = 4;
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c <= r; c++) {
+                    const x = startX + r * (BALL_RADIUS * 2 * 0.866);
+                    const y = startY + (c - r / 2) * (BALL_RADIUS * 2 + 1);
+                    const color = colors[colorIdx % colors.length];
+                    balls.push(new Ball(x, y, color));
+                    colorIdx++;
+                }
+            }
+        }
+
+        // Kontrol Drag & Aim
+        let isDragging = false;
+        let dragStart = { x: 0, y: 0 };
+        let dragCurrent = { x: 0, y: 0 };
+
+        function getCanvasCoords(e) {
+            const rect = canvas.getBoundingClientRect();
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+
+            return {
+                x: (clientX - rect.left) * (TABLE_WIDTH / rect.width),
+                y: (clientY - rect.top) * (TABLE_HEIGHT / rect.height)
+            };
+        }
+
+        function areBallsStopped() {
+            return balls.every(b => b.vx === 0 && b.vy === 0);
+        }
+
+        function handleStart(e) {
+            if (!areBallsStopped()) return;
+            const coords = getCanvasCoords(e);
+            const dist = Math.hypot(coords.x - cueBall.x, coords.y - cueBall.y);
+
+            if (dist < BALL_RADIUS * 3) {
+                isDragging = true;
+                dragStart = coords;
+                dragCurrent = coords;
+            }
+        }
+
+        function handleMove(e) {
+            if (!isDragging) return;
+            dragCurrent = getCanvasCoords(e);
+        }
+
+        function handleEnd() {
+            if (!isDragging) return;
+            isDragging = false;
+
+            const dx = dragStart.x - dragCurrent.x;
+            const dy = dragStart.y - dragCurrent.y;
+            const power = Math.min(Math.hypot(dx, dy) * 0.15, 20);
+
+            const angle = Math.atan2(dy, dx);
+            cueBall.vx = Math.cos(angle) * power;
+            cueBall.vy = Math.sin(angle) * power;
+        }
+
+        canvas.addEventListener('mousedown', handleStart);
+        canvas.addEventListener('mousemove', handleMove);
+        window.addEventListener('mouseup', handleEnd);
+
+        canvas.addEventListener('touchstart', handleStart);
+        canvas.addEventListener('touchmove', handleMove);
+        window.addEventListener('touchend', handleEnd);
+
+        // Fisika Tabrakan Antar Bola
+        function resolveCollisions() {
+            for (let i = 0; i < balls.length; i++) {
+                for (let j = i + 1; j < balls.length; j++) {
+                    const b1 = balls[i];
+                    const b2 = balls[j];
+
+                    if (b1.pocketed || b2.pocketed) continue;
+
+                    const dx = b2.x - b1.x;
+                    const dy = b2.y - b1.y;
+                    const dist = Math.hypot(dx, dy);
+
+                    if (dist < BALL_RADIUS * 2) {
+                        const angle = Math.atan2(dy, dx);
+                        const sin = Math.sin(angle);
+                        const cos = Math.cos(angle);
+
+                        // Overlap correction
+                        const overlap = (BALL_RADIUS * 2) - dist;
+                        b1.x -= cos * overlap * 0.5;
+                        b1.y -= sin * overlap * 0.5;
+                        b2.x += cos * overlap * 0.5;
+                        b2.y += sin * overlap * 0.5;
+
+                        // Velocity exchange
+                        const vx1 = b1.vx * cos + b1.vy * sin;
+                        const vy1 = b1.vy * cos - b1.vx * sin;
+                        const vx2 = b2.vx * cos + b2.vy * sin;
+                        const vy2 = b2.vy * cos - b2.vx * sin;
+
+                        const finalVx1 = vx2;
+                        const finalVx2 = vx1;
+
+                        b1.vx = finalVx1 * cos - vy1 * sin;
+                        b1.vy = vy1 * cos + finalVx1 * sin;
+                        b2.vx = finalVx2 * cos - vy2 * sin;
+                        b2.vy = vy2 * cos + finalVx2 * sin;
+                    }
+                }
+            }
+        }
+
+        // Cek Bola Masuk Lubang
+        function checkPockets() {
+            balls.forEach(b => {
+                if (b.pocketed) return;
+                pockets.forEach(p => {
+                    const dist = Math.hypot(b.x - p.x, b.y - p.y);
+                    if (dist < BORDER * 0.8) {
+                        b.pocketed = true;
+                        b.vx = 0;
+                        b.vy = 0;
+
+                        // Reset Bola Putih jika masuk lubang
+                        if (b.isCue) {
+                            setTimeout(() => {
+                                b.x = TABLE_WIDTH * 0.25;
+                                b.y = TABLE_HEIGHT / 2;
+                                b.pocketed = false;
+                            }, 500);
+                        }
+                    }
+                });
+            });
+        }
+
+        // Render Meja & Elemen
+        function drawTable() {
+            // Bingkai Kayu
+            ctx.fillStyle = '#4a2511';
+            ctx.fillRect(0, 0, TABLE_WIDTH, TABLE_HEIGHT);
+
+            // Karpet Hijau
+            ctx.fillStyle = '#0d5c2a';
+            ctx.fillRect(BORDER, BORDER, TABLE_WIDTH - BORDER * 2, TABLE_HEIGHT - BORDER * 2);
+
+            // Lubang
+            pockets.forEach(p => {
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, BORDER * 0.65, 0, Math.PI * 2);
+                ctx.fillStyle = '#111';
+                ctx.fill();
+                ctx.closePath();
+            });
+        }
+
+        // Loop Utama Game
+        function gameLoop() {
+            ctx.clearRect(0, 0, TABLE_WIDTH, TABLE_HEIGHT);
+
+            drawTable();
+
+            balls.forEach(b => b.update());
+            resolveCollisions();
+            checkPockets();
+            balls.forEach(b => b.draw());
+
+            // Garis Bidikan (Aim line)
+            if (isDragging && cueBall) {
+                ctx.beginPath();
+                ctx.moveTo(cueBall.x, cueBall.y);
+                const dx = dragStart.x - dragCurrent.x;
+                const dy = dragStart.y - dragCurrent.y;
+                ctx.lineTo(cueBall.x + dx, cueBall.y + dy);
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+                ctx.lineWidth = 2;
+                ctx.setLineDash([5, 5]);
+                ctx.stroke();
+                ctx.setLineDash([]);
+                ctx.closePath();
+            }
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        initBalls();
+        gameLoop();
+    </script>
+</body>
+</html>
