@@ -1079,19 +1079,26 @@ function getNextActive(fromPid){
 function getOrderFrom(pid){ return [1,2,3].map(i => (pid+i)%4); }
 
 function endGame(){
-  const remaining=[0,1,2,3].filter(p=>!G.finished.includes(p));
-  remaining.sort((a,b)=>G.hands[a].length-G.hands[b].length);
+  if (G.isGameOver) return; // Prevent double calculation
+  
+  // Masukkan sisa pemain yang belum habis kartunya berdasarkan sisa kartu terkecil
+  const remaining = [0,1,2,3].filter(p => !G.finished.includes(p));
+  remaining.sort((a,b) => G.hands[a].length - G.hands[b].length);
   for(const p of remaining) G.finished.push(p);
+  
   if (G.lastWinner === null && G.finished.length > 0) G.lastWinner = G.finished[0];
 
-  // Hitung poin ronde saat ini: P1 = +2, P2 = +1, P3 = 0, P4 = -1
+  // Hitung poin ronde saat ini tepat 1 kali
   const points = [2, 1, 0, -1];
-  for(let i = 0; i < G.finished.length; i++) {
-    const p = G.finished[i];
-    G.sessionScores[p] += points[i];
-  }
+  G.finished.forEach((p, idx) => {
+    G.sessionScores[p] = (G.sessionScores[p] || 0) + (points[idx] !== undefined ? points[idx] : -1);
+  });
 
-  G.isGameOver=true; log('system','🎮 RONDE SELESAI!'); renderAll(); showGameOverUI();
+  G.isGameOver = true; 
+  log('system', '🎮 RONDE SELESAI!'); 
+  renderAll(); 
+  showGameOverUI();
+  
   if(IS_ONLINE && IS_HOST) broadcastGameState();
 }
 
