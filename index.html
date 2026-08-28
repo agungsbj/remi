@@ -7,6 +7,80 @@
 <!-- Supabase JS Client -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
+  /* ── MEDIA QUERIES UNTUK TAMPILAN HP (MOBILE LAYOUT FIX & MEJA DIBERBESAR) ── */
+@media (max-width: 700px) {
+  body { padding: 0; }
+  #gameTable {
+    width: 100vw; width: 100dvw;
+    height: 100vh; height: 100dvh;
+    border-radius: 0; border-width: 4px;
+  }
+
+  .pzone-left { left: 4px; top: 28%; }
+  .pzone-right { right: 4px; top: 28%; }
+  .pzone-top { top: 6px; }
+
+  /* Kartu Kipas Lawan versi Mini HP */
+  .bot-cards { height: 26px; }
+  .card-back {
+    width: 17px;
+    height: 26px;
+    margin-left: -11px;
+  }
+
+  /* ── AREA MEJA TENAH & KARTU BUANGAN (DIBERBESAR & DITURUNKAN) ── */
+  #tableCenter {
+    top: 44%; /* Turun ke area kosong bawah P2 & P3 */
+    width: 310px;
+    min-height: 140px;
+  }
+  .table-ring { 
+    width: 270px; 
+    height: 130px; 
+  }
+
+  /* Ukuran Kartu yang Dibuang di Meja */
+  #tableCardsWrap .card { 
+    width: 48px; 
+    height: 68px; 
+    padding: 4px 0 0 5px; 
+  }
+  #tableCardsWrap .card .c-rank { font-size: 0.85rem; }
+  #tableCardsWrap .card .c-suit { font-size: 0.9rem; }
+  #tableCardsWrap .card .c-suit-bg { font-size: 1.4rem; }
+
+  #statusStrip {
+    transform: translate(-50%, calc(-50% + 75px));
+  }
+
+  /* Kartu Tangan Pemain versi HP */
+  .card {
+    width: 40px; height: 58px; padding: 3px 0 0 4px;
+  }
+  .card .c-rank { font-size: 0.78rem; }
+  .card .c-suit { font-size: 0.82rem; }
+  .card .c-suit-bg { font-size: 1.2rem; }
+
+  #handCardsWrap {
+    min-height: 100px;
+    max-height: 125px;
+    gap: 3px;
+  }
+  #handArea {
+    padding: 4px 6px 6px;
+  }
+  #actionsBar {
+    gap: 4px;
+  }
+  .btn {
+    font-size: 0.7rem;
+    padding: 5px 10px;
+  }
+  .btn-sort {
+    font-size: 0.55rem;
+    padding: 3px 6px;
+  }
+}
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@400;500;600;700&display=swap');
 
 :root {
