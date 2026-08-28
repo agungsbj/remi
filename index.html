@@ -7,80 +7,6 @@
 <!-- Supabase JS Client -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
-  /* ── MEDIA QUERIES UNTUK TAMPILAN HP (MOBILE LAYOUT FIX & MEJA DIBERBESAR) ── */
-@media (max-width: 700px) {
-  body { padding: 0; }
-  #gameTable {
-    width: 100vw; width: 100dvw;
-    height: 100vh; height: 100dvh;
-    border-radius: 0; border-width: 4px;
-  }
-
-  .pzone-left { left: 4px; top: 28%; }
-  .pzone-right { right: 4px; top: 28%; }
-  .pzone-top { top: 6px; }
-
-  /* Kartu Kipas Lawan versi Mini HP */
-  .bot-cards { height: 26px; }
-  .card-back {
-    width: 17px;
-    height: 26px;
-    margin-left: -11px;
-  }
-
-  /* ── AREA MEJA TENAH & KARTU BUANGAN (DIBERBESAR & DITURUNKAN) ── */
-  #tableCenter {
-    top: 44%; /* Turun ke area kosong bawah P2 & P3 */
-    width: 310px;
-    min-height: 140px;
-  }
-  .table-ring { 
-    width: 270px; 
-    height: 130px; 
-  }
-
-  /* Ukuran Kartu yang Dibuang di Meja */
-  #tableCardsWrap .card { 
-    width: 48px; 
-    height: 68px; 
-    padding: 4px 0 0 5px; 
-  }
-  #tableCardsWrap .card .c-rank { font-size: 0.85rem; }
-  #tableCardsWrap .card .c-suit { font-size: 0.9rem; }
-  #tableCardsWrap .card .c-suit-bg { font-size: 1.4rem; }
-
-  #statusStrip {
-    transform: translate(-50%, calc(-50% + 75px));
-  }
-
-  /* Kartu Tangan Pemain versi HP */
-  .card {
-    width: 40px; height: 58px; padding: 3px 0 0 4px;
-  }
-  .card .c-rank { font-size: 0.78rem; }
-  .card .c-suit { font-size: 0.82rem; }
-  .card .c-suit-bg { font-size: 1.2rem; }
-
-  #handCardsWrap {
-    min-height: 100px;
-    max-height: 125px;
-    gap: 3px;
-  }
-  #handArea {
-    padding: 4px 6px 6px;
-  }
-  #actionsBar {
-    gap: 4px;
-  }
-  .btn {
-    font-size: 0.7rem;
-    padding: 5px 10px;
-  }
-  .btn-sort {
-    font-size: 0.55rem;
-    padding: 3px 6px;
-  }
-}
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@400;500;600;700&display=swap');
 
 :root {
@@ -137,8 +63,8 @@ body {
   position: absolute; display: flex; flex-direction: column; align-items: center; gap: 2px; z-index: 10;
 }
 .pzone-top { top: 10px; left: 50%; transform: translateX(-50%); }
-.pzone-left { left: 10px; top: 42%; transform: translateY(-50%); }
-.pzone-right { right: 10px; top: 42%; transform: translateY(-50%); }
+.pzone-left { left: 10px; top: 22%; transform: translateY(-50%); }
+.pzone-right { right: 10px; top: 22%; transform: translateY(-50%); }
 .pzone-bottom { bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 680px; }
 
 /* ── PLAYER NAMEPLATE & AVATAR ── */
@@ -204,15 +130,15 @@ body {
   margin-left: 0; 
 }
 
-/* ── CENTER TABLE ── */
+/* ── CENTER TABLE (POSISI KOTAK MERAH) ── */
 #tableCenter {
-  position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%);
+  position: absolute; top: 46%; left: 50%; transform: translate(-50%, -50%);
   width: 320px; min-height: 150px;
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
 }
 .table-ring {
-  position: absolute; width: 280px; height: 140px; border-radius: 50%;
-  border: 1.5px dashed rgba(201,168,76,0.25); top: 50%; left: 50%; transform: translate(-50%,-50%);
+  position: absolute; width: 300px; height: 150px; border-radius: 50%;
+  border: 1.5px dashed rgba(201,168,76,0.3); top: 50%; left: 50%; transform: translate(-50%,-50%);
   pointer-events: none;
 }
 #tableCardsWrap { position: relative; width: 100%; min-height: 120px; padding: 4px; }
@@ -247,7 +173,7 @@ body {
 
 /* ── STATUS STRIP ── */
 #statusStrip {
-  position: absolute; top: 50%; left: 50%; transform: translate(-50%, calc(-50% + 70px));
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, calc(-50% + 85px));
   display: flex; gap: 4px; align-items: center; flex-wrap: wrap; justify-content: center; z-index: 15;
 }
 .mode-chip { padding: 3px 10px; border-radius: 20px; font-size: 0.6rem; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; }
@@ -270,7 +196,7 @@ body {
 .card.red { color: var(--red); }
 .card.black { color: var(--black); }
 
-#tableCardsWrap .card { width: 46px; height: 66px; padding: 4px 0 0 5px; }
+#tableCardsWrap .card { width: 52px; height: 74px; padding: 4px 0 0 5px; }
 
 /* ── HAND AREA ── */
 #handArea {
@@ -383,27 +309,42 @@ body {
     border-radius: 0; border-width: 4px;
   }
 
-  .pzone-left { left: 4px; top: 35%; }
-  .pzone-right { right: 4px; top: 35%; }
+  .pzone-left { left: 4px; top: 22%; transform: translateY(-50%); }
+  .pzone-right { right: 4px; top: 22%; transform: translateY(-50%); }
   .pzone-top { top: 6px; }
 
   /* Kartu Kipas Lawan versi Mini HP */
-  .bot-cards { height: 28px; }
+  .bot-cards { height: 26px; }
   .card-back {
-    width: 18px;
-    height: 28px;
-    margin-left: -12px;
+    width: 17px;
+    height: 26px;
+    margin-left: -11px;
   }
 
+  /* ── MEJA TENGAH TEPAT DI KOTAK MERAH ── */
   #tableCenter {
-    top: 36%;
-    width: 260px;
-    min-height: 120px;
+    top: 48%; /* Digeser turun tepat di area tengah bawah P2/P3 */
+    width: 310px;
+    min-height: 140px;
   }
-  .table-ring { width: 220px; height: 110px; }
-  #tableCardsWrap .card { width: 40px; height: 58px; padding: 3px 0 0 4px; }
-  #tableCardsWrap .card .c-rank { font-size: 0.75rem; }
-  #tableCardsWrap .card .c-suit { font-size: 0.8rem; }
+  .table-ring { 
+    width: 280px; 
+    height: 140px; 
+  }
+
+  /* Ukuran Kartu Buangan di Meja */
+  #tableCardsWrap .card { 
+    width: 50px; 
+    height: 70px; 
+    padding: 4px 0 0 5px; 
+  }
+  #tableCardsWrap .card .c-rank { font-size: 0.85rem; }
+  #tableCardsWrap .card .c-suit { font-size: 0.9rem; }
+  #tableCardsWrap .card .c-suit-bg { font-size: 1.4rem; }
+
+  #statusStrip {
+    transform: translate(-50%, calc(-50% + 80px));
+  }
 
   /* Kartu Tangan Pemain versi HP */
   .card {
@@ -1456,10 +1397,9 @@ function renderOpponentCards(){
       const d=document.createElement('div'); 
       d.className='card-back';
       
-      // Kalkulasi Sudut Rotasi Kipas (Fan Angle)
       const center = (count - 1) / 2;
-      const angle = (i - center) * 5; // Rentang rotasi per kartu
-      const translateY = Math.abs(i - center) * 2; // Efek lengkungan kipas
+      const angle = (i - center) * 5; 
+      const translateY = Math.abs(i - center) * 2; 
       
       d.style.transform = `rotate(${angle}deg) translateY(${translateY}px)`;
       wrap.appendChild(d);
