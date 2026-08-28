@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Mini Pool Game Pro Controls</title>
+    <title>Mini Pool Game - Smooth Aim & Deep Guides</title>
     <style>
         * {
             box-sizing: border-box;
@@ -46,7 +46,7 @@
             flex-direction: column;
             justify-content: center;
             align-items: center;
-            z-index: 20;
+            z-index: 30;
             color: white;
         }
         #menu-overlay h1 {
@@ -75,9 +75,10 @@
             transform: scale(1.05);
         }
 
-        /* Panel Kontrol Kiri & Kanan */
-        .control-panel {
+        /* Panel Kontrol Kiri */
+        #panel-left {
             position: absolute;
+            left: 15px;
             top: 50%;
             transform: translateY(-50%);
             display: none;
@@ -89,25 +90,19 @@
             color: white;
             z-index: 10;
         }
-        #panel-left { left: 15px; }
-        #panel-right { right: 15px; }
-
-        .control-panel label {
+        #panel-left label {
             font-size: 12px;
             font-weight: bold;
             margin-bottom: 10px;
             text-transform: uppercase;
-            letter-spacing: 1px;
         }
-
         .slider-vertical {
-            writing-mode: bt-lr; /* IE/Edge */
-            -webkit-appearance: slider-vertical; /* Webkit */
+            writing-mode: bt-lr;
+            -webkit-appearance: slider-vertical;
             width: 25px;
             height: 180px;
             cursor: pointer;
         }
-
         #shoot-btn {
             margin-top: 15px;
             padding: 10px 15px;
@@ -119,8 +114,40 @@
             cursor: pointer;
             width: 100%;
         }
-        #shoot-btn:active {
-            background: #c0392b;
+        #shoot-btn:active { background: #c0392b; }
+
+        /* Panel Kontrol Kanan (Wheel Aim Smooth) */
+        #panel-right {
+            position: absolute;
+            right: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            z-index: 10;
+        }
+        #aim-wheel {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, rgba(0,0,0,0.8) 100%);
+            border: 3px solid #f39c12;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: grab;
+            box-shadow: 0 0 15px rgba(0,0,0,0.5);
+            position: relative;
+        }
+        #aim-knob {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: #f39c12;
+            position: absolute;
+            pointer-events: none;
+            box-shadow: 0 0 8px rgba(255,255,255,0.8);
         }
     </style>
 </head>
@@ -135,15 +162,16 @@
             </div>
         </div>
 
-        <div id="panel-left" class="control-panel">
+        <div id="panel-left">
             <label>Power</label>
             <input type="range" id="power-slider" class="slider-vertical" min="1" max="100" value="30">
             <button id="shoot-btn" onclick="shootBall()">TEMBAK</button>
         </div>
 
-        <div id="panel-right" class="control-panel">
-            <label>Arah</label>
-            <input type="range" id="angle-slider" class="slider-vertical" min="0" max="360" value="0">
+        <div id="panel-right">
+            <div id="aim-wheel">
+                <div id="aim-knob"></div>
+            </div>
         </div>
 
         <canvas id="poolCanvas"></canvas>
@@ -156,7 +184,8 @@
         const panelLeft = document.getElementById('panel-left');
         const panelRight = document.getElementById('panel-right');
         const powerSlider = document.getElementById('power-slider');
-        const angleSlider = document.getElementById('angle-slider');
+        const aimWheel = document.getElementById('aim-wheel');
+        const aimKnob = document.getElementById('aim-knob');
 
         const TABLE_WIDTH = 800;
         const TABLE_HEIGHT = 400;
@@ -165,12 +194,12 @@
 
         let balls = [];
         let cueBall;
-        let aimAngle = 0; // Sudut tembakan dalam radian
+        let aimAngle = 0; 
 
         function resizeCanvas() {
             const aspect = TABLE_WIDTH / TABLE_HEIGHT;
-            let w = window.innerWidth * 0.85; // Menyeimbangkan UI kiri & kanan
-            let h = window.innerHeight * 0.85;
+            let w = window.innerWidth * 0.8;
+            let h = window.innerHeight * 0.8;
 
             if (w / h > aspect) { w = h * aspect; } 
             else { h = w / aspect; }
@@ -201,7 +230,6 @@
                 this.x += this.vx;
                 this.y += this.vy;
 
-                // Gesekan
                 this.vx *= 0.985;
                 this.vy *= 0.985;
 
@@ -210,7 +238,6 @@
                     this.vy = 0;
                 }
 
-                // Dinding
                 const minX = BORDER + BALL_RADIUS;
                 const maxX = TABLE_WIDTH - BORDER - BALL_RADIUS;
                 const minY = BORDER + BALL_RADIUS;
@@ -234,7 +261,6 @@
                 ctx.stroke();
                 ctx.closePath();
 
-                // Penanda Khusus Bola Putih (Cue Mark)
                 if (this.isCue) {
                     ctx.beginPath();
                     ctx.arc(this.x, this.y, 3, 0, Math.PI * 2);
@@ -300,10 +326,47 @@
             cueBall.vy = Math.sin(aimAngle) * power;
         }
 
-        // Sinkronisasi Slider Arah Kanan
-        angleSlider.addEventListener('input', () => {
-            aimAngle = (parseFloat(angleSlider.value) * Math.PI) / 180;
-        });
+        // SMOOTH WHEEL AIM CONTROL (GESER PUTAR 360 DERAJAT)
+        let isWheelDragging = false;
+
+        function updateWheelAngle(e) {
+            const rect = aimWheel.getBoundingClientRect();
+            const centerX = rect.left + rect.width / 2;
+            const centerY = rect.top + rect.height / 2;
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+
+            const dx = clientX - centerX;
+            const dy = clientY - centerY;
+
+            aimAngle = Math.atan2(dy, dx);
+
+            // Update posisi visual Knob di dalam Wheel
+            const knobRadius = 40;
+            const knobX = Math.cos(aimAngle) * knobRadius;
+            const knobY = Math.sin(aimAngle) * knobRadius;
+
+            aimKnob.style.transform = `translate(${knobX}px, ${knobY}px)`;
+        }
+
+        function onWheelStart(e) {
+            isWheelDragging = true;
+            updateWheelAngle(e);
+        }
+        function onWheelMove(e) {
+            if (isWheelDragging) updateWheelAngle(e);
+        }
+        function onWheelEnd() {
+            isWheelDragging = false;
+        }
+
+        aimWheel.addEventListener('mousedown', onWheelStart);
+        window.addEventListener('mousemove', onWheelMove);
+        window.addEventListener('mouseup', onWheelEnd);
+
+        aimWheel.addEventListener('touchstart', onWheelStart);
+        window.addEventListener('touchmove', onWheelMove);
+        window.addEventListener('touchend', onWheelEnd);
 
         function resolveCollisions() {
             for (let i = 0; i < balls.length; i++) {
@@ -360,19 +423,16 @@
             });
         }
 
-        // Sistem Garis Pandu & Pantulan Panjang
+        // FUNGSI GARIS BANTU PANJANG & PANTULAN BOLA TARGET
         function drawExtendedAimGuides() {
             if (!areBallsStopped() || !cueBall || cueBall.pocketed) return;
 
             const dirX = Math.cos(aimAngle);
             const dirY = Math.sin(aimAngle);
 
-            let rayX = cueBall.x;
-            let rayY = cueBall.y;
             let hitBall = null;
             let minDistance = Infinity;
 
-            // Cek Tabrakan Ray dengan Bola Lain
             balls.forEach(b => {
                 if (b.isCue || b.pocketed) return;
                 const dx = b.x - cueBall.x;
@@ -397,39 +457,77 @@
             const maxY = TABLE_HEIGHT - BORDER - BALL_RADIUS;
 
             if (hitBall) {
-                // Skenario 1: Menghantam Bola Target
                 const ghostX = cueBall.x + dirX * minDistance;
                 const ghostY = cueBall.y + dirY * minDistance;
 
-                // Garis Ke Bola Target
+                // 1. Garis dari bola putih ke titik benturan
                 ctx.beginPath();
                 ctx.moveTo(cueBall.x, cueBall.y);
                 ctx.lineTo(ghostX, ghostY);
-                ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
                 ctx.lineWidth = 1.5;
                 ctx.setLineDash([4, 4]);
                 ctx.stroke();
                 ctx.closePath();
 
-                // Lingkaran Bayangan (Ghost Ball)
+                // 2. Lingkaran Bayangan (Ghost Ball)
                 ctx.beginPath();
                 ctx.arc(ghostX, ghostY, BALL_RADIUS, 0, Math.PI * 2);
-                ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
-                ctx.stroke();
-                ctx.closePath();
-
-                // Arah Pantulan Bola Target
-                const targetAngle = Math.atan2(hitBall.y - ghostY, hitBall.x - ghostX);
-                ctx.beginPath();
-                ctx.moveTo(hitBall.x, hitBall.y);
-                ctx.lineTo(hitBall.x + Math.cos(targetAngle) * 300, hitBall.y + Math.sin(targetAngle) * 300);
-                ctx.strokeStyle = '#f1c40f'; // Garis Kuning untuk Bola Target
+                ctx.strokeStyle = '#2ecc71';
                 ctx.lineWidth = 2;
                 ctx.stroke();
                 ctx.closePath();
 
+                // 3. Garis Pantulan Bola Putih (Perpendicular Direction)
+                const normalAngle = Math.atan2(hitBall.y - ghostY, hitBall.x - ghostX);
+                const cueReflectAngle = normalAngle + Math.PI / 2; // Tangensial 90 derajat
+
+                ctx.beginPath();
+                ctx.moveTo(ghostX, ghostY);
+                ctx.lineTo(ghostX + Math.cos(cueReflectAngle) * 500, ghostY + Math.sin(cueReflectAngle) * 500);
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+                ctx.closePath();
+
+                // 4. Garis Pantulan Bola Target (Sangat Panjang)
+                const targetDirX = Math.cos(normalAngle);
+                const targetDirY = Math.sin(normalAngle);
+
+                // Hitung titik dinding untuk pantulan bola target
+                let tX = targetDirX > 0 ? (maxX - hitBall.x) / targetDirX : (minX - hitBall.x) / targetDirX;
+                let tY = targetDirY > 0 ? (maxY - hitBall.y) / targetDirY : (minY - hitBall.y) / targetDirY;
+                let t = Math.min(tX, tY);
+
+                const targetWallX = hitBall.x + targetDirX * t;
+                const targetWallY = hitBall.y + targetDirY * t;
+
+                // Garis Arah Bola Target ke Dinding
+                ctx.beginPath();
+                ctx.moveTo(hitBall.x, hitBall.y);
+                ctx.lineTo(targetWallX, targetWallY);
+                ctx.strokeStyle = '#f1c40f'; // Warna Kuning Terang
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                ctx.closePath();
+
+                // Pantulan Bola Target dari Dinding (Tembus Lanjut)
+                let wallReflectX = targetDirX;
+                let wallReflectY = targetDirY;
+                if (t === tX) wallReflectX *= -1;
+                if (t === tY) wallReflectY *= -1;
+
+                ctx.beginPath();
+                ctx.moveTo(targetWallX, targetWallY);
+                ctx.lineTo(targetWallX + wallReflectX * 600, targetWallY + wallReflectY * 600);
+                ctx.strokeStyle = '#e67e22'; // Warna Oranye Pantulan
+                ctx.lineWidth = 2;
+                ctx.setLineDash([3, 3]);
+                ctx.stroke();
+                ctx.closePath();
+
             } else {
-                // Skenario 2: Menghantam Dinding & Memantul
+                // Pantulan Bola Putih jika tidak mengenai bola lain
                 let tX = dirX > 0 ? (maxX - cueBall.x) / dirX : (minX - cueBall.x) / dirX;
                 let tY = dirY > 0 ? (maxY - cueBall.y) / dirY : (minY - cueBall.y) / dirY;
                 let t = Math.min(tX, tY);
@@ -437,17 +535,15 @@
                 const wallX = cueBall.x + dirX * t;
                 const wallY = cueBall.y + dirY * t;
 
-                // Garis ke Dinding
                 ctx.beginPath();
                 ctx.moveTo(cueBall.x, cueBall.y);
                 ctx.lineTo(wallX, wallY);
-                ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
                 ctx.lineWidth = 1.5;
                 ctx.setLineDash([4, 4]);
                 ctx.stroke();
                 ctx.closePath();
 
-                // Garis Pantulan Dinding
                 let reflectX = dirX;
                 let reflectY = dirY;
                 if (t === tX) reflectX *= -1;
@@ -455,8 +551,8 @@
 
                 ctx.beginPath();
                 ctx.moveTo(wallX, wallY);
-                ctx.lineTo(wallX + reflectX * 300, wallY + reflectY * 300);
-                ctx.strokeStyle = '#e74c3c'; // Garis Merah untuk Pantulan Dinding
+                ctx.lineTo(wallX + reflectX * 600, wallY + reflectY * 600);
+                ctx.strokeStyle = '#e74c3c';
                 ctx.lineWidth = 2;
                 ctx.stroke();
                 ctx.closePath();
