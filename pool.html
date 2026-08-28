@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Mini Pool Game - Smooth Aim & Deep Guides</title>
+    <title>Mini Pool Game - Sequential Guide Lines</title>
     <style>
         * {
             box-sizing: border-box;
@@ -116,7 +116,7 @@
         }
         #shoot-btn:active { background: #c0392b; }
 
-        /* Panel Kontrol Kanan (Wheel Aim Smooth) */
+        /* Panel Kontrol Kanan (Wheel Aim) */
         #panel-right {
             position: absolute;
             right: 20px;
@@ -326,7 +326,7 @@
             cueBall.vy = Math.sin(aimAngle) * power;
         }
 
-        // SMOOTH WHEEL AIM CONTROL (GESER PUTAR 360 DERAJAT)
+        // SMOOTH WHEEL AIM CONTROL
         let isWheelDragging = false;
 
         function updateWheelAngle(e) {
@@ -341,7 +341,6 @@
 
             aimAngle = Math.atan2(dy, dx);
 
-            // Update posisi visual Knob di dalam Wheel
             const knobRadius = 40;
             const knobX = Math.cos(aimAngle) * knobRadius;
             const knobY = Math.sin(aimAngle) * knobRadius;
@@ -423,7 +422,7 @@
             });
         }
 
-        // FUNGSI GARIS BANTU PANJANG & PANTULAN BOLA TARGET
+        // SISTEM SEKUENSIONAL GUIDE LINE (BOLA PUTIH -> BOLA TUJUAN -> BAN/RAIL -> PANTULAN)
         function drawExtendedAimGuides() {
             if (!areBallsStopped() || !cueBall || cueBall.pocketed) return;
 
@@ -433,6 +432,7 @@
             let hitBall = null;
             let minDistance = Infinity;
 
+            // Cek titik benturan Bola Putih dengan Bola Tujuan
             balls.forEach(b => {
                 if (b.isCue || b.pocketed) return;
                 const dx = b.x - cueBall.x;
@@ -457,20 +457,21 @@
             const maxY = TABLE_HEIGHT - BORDER - BALL_RADIUS;
 
             if (hitBall) {
+                // Posisi bayangan tempat Bola Putih mengenai Bola Tujuan
                 const ghostX = cueBall.x + dirX * minDistance;
                 const ghostY = cueBall.y + dirY * minDistance;
 
-                // 1. Garis dari bola putih ke titik benturan
+                // 1. GARIS BOLA PUTIH -> BOLA TUJUAN
                 ctx.beginPath();
                 ctx.moveTo(cueBall.x, cueBall.y);
                 ctx.lineTo(ghostX, ghostY);
-                ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
                 ctx.lineWidth = 1.5;
                 ctx.setLineDash([4, 4]);
                 ctx.stroke();
                 ctx.closePath();
 
-                // 2. Lingkaran Bayangan (Ghost Ball)
+                // Lingkaran Bayangan Benturan (Ghost Ball)
                 ctx.beginPath();
                 ctx.arc(ghostX, ghostY, BALL_RADIUS, 0, Math.PI * 2);
                 ctx.strokeStyle = '#2ecc71';
@@ -478,56 +479,45 @@
                 ctx.stroke();
                 ctx.closePath();
 
-                // 3. Garis Pantulan Bola Putih (Perpendicular Direction)
-                const normalAngle = Math.atan2(hitBall.y - ghostY, hitBall.x - ghostX);
-                const cueReflectAngle = normalAngle + Math.PI / 2; // Tangensial 90 derajat
+                // Hitung arah dorongan Bola Tujuan (Sesuai garis pusat kontak)
+                const targetAngle = Math.atan2(hitBall.y - ghostY, hitBall.x - ghostX);
+                const targetDirX = Math.cos(targetAngle);
+                const targetDirY = Math.sin(targetAngle);
 
-                ctx.beginPath();
-                ctx.moveTo(ghostX, ghostY);
-                ctx.lineTo(ghostX + Math.cos(cueReflectAngle) * 500, ghostY + Math.sin(cueReflectAngle) * 500);
-                ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
-                ctx.lineWidth = 1.5;
-                ctx.stroke();
-                ctx.closePath();
-
-                // 4. Garis Pantulan Bola Target (Sangat Panjang)
-                const targetDirX = Math.cos(normalAngle);
-                const targetDirY = Math.sin(normalAngle);
-
-                // Hitung titik dinding untuk pantulan bola target
+                // Hitung titik benturan Bola Tujuan dengan BAN/RAIL
                 let tX = targetDirX > 0 ? (maxX - hitBall.x) / targetDirX : (minX - hitBall.x) / targetDirX;
                 let tY = targetDirY > 0 ? (maxY - hitBall.y) / targetDirY : (minY - hitBall.y) / targetDirY;
                 let t = Math.min(tX, tY);
 
-                const targetWallX = hitBall.x + targetDirX * t;
-                const targetWallY = hitBall.y + targetDirY * t;
+                const wallHitX = hitBall.x + targetDirX * t;
+                const wallHitY = hitBall.y + targetDirY * t;
 
-                // Garis Arah Bola Target ke Dinding
+                // 2. GARIS BOLA TUJUAN -> BAN/RAIL MEJA
                 ctx.beginPath();
                 ctx.moveTo(hitBall.x, hitBall.y);
-                ctx.lineTo(targetWallX, targetWallY);
-                ctx.strokeStyle = '#f1c40f'; // Warna Kuning Terang
+                ctx.lineTo(wallHitX, wallHitY);
+                ctx.strokeStyle = '#f1c40f'; // Garis Kuning
                 ctx.lineWidth = 2;
                 ctx.stroke();
                 ctx.closePath();
 
-                // Pantulan Bola Target dari Dinding (Tembus Lanjut)
-                let wallReflectX = targetDirX;
-                let wallReflectY = targetDirY;
-                if (t === tX) wallReflectX *= -1;
-                if (t === tY) wallReflectY *= -1;
+                // 3. GARIS PANTULAN BOLA TUJUAN DARI BAN/RAIL LALU MELAJU PANJANG
+                let reflectX = targetDirX;
+                let reflectY = targetDirY;
+                if (t === tX) reflectX *= -1;
+                if (t === tY) reflectY *= -1;
 
                 ctx.beginPath();
-                ctx.moveTo(targetWallX, targetWallY);
-                ctx.lineTo(targetWallX + wallReflectX * 600, targetWallY + wallReflectY * 600);
-                ctx.strokeStyle = '#e67e22'; // Warna Oranye Pantulan
+                ctx.moveTo(wallHitX, wallHitY);
+                ctx.lineTo(wallHitX + reflectX * 800, wallHitY + reflectY * 800);
+                ctx.strokeStyle = '#e67e22'; // Garis Oranye
                 ctx.lineWidth = 2;
-                ctx.setLineDash([3, 3]);
+                ctx.setLineDash([4, 4]);
                 ctx.stroke();
                 ctx.closePath();
 
             } else {
-                // Pantulan Bola Putih jika tidak mengenai bola lain
+                // Jika tidak mengenai bola lain, Bola Putih langsung menuju BAN/RAIL
                 let tX = dirX > 0 ? (maxX - cueBall.x) / dirX : (minX - cueBall.x) / dirX;
                 let tY = dirY > 0 ? (maxY - cueBall.y) / dirY : (minY - cueBall.y) / dirY;
                 let t = Math.min(tX, tY);
@@ -551,7 +541,7 @@
 
                 ctx.beginPath();
                 ctx.moveTo(wallX, wallY);
-                ctx.lineTo(wallX + reflectX * 600, wallY + reflectY * 600);
+                ctx.lineTo(wallX + reflectX * 800, wallY + reflectY * 800);
                 ctx.strokeStyle = '#e74c3c';
                 ctx.lineWidth = 2;
                 ctx.stroke();
