@@ -1035,30 +1035,36 @@ function processAction(pid, actionType, data) {
 }
 
 function playCards(pid, cards) {
-  const combo=detectCombo(cards);
+  const combo = detectCombo(cards);
   for (const c of cards){
-    const idx=G.hands[pid].findIndex(x=>x.r===c.r&&x.s===c.s);
-    if (idx>=0) G.hands[pid].splice(idx,1);
+    const idx = G.hands[pid].findIndex(x => x.r === c.r && x.s === c.s);
+    if (idx >= 0) G.hands[pid].splice(idx, 1);
   }
-  handOrder = G.hands[MY_PID].map((_,i)=>i); selected = [];
-  G.tableCards=cards; G.tablePlayer=pid; G.passCount=0; G.remActive=false;
-  G.mode=combo.type==='single'?'single':'combo'; G.comboType=combo.type==='single'?null:combo.type;
-  G.roundStacks.push({pid, cards:[...cards], type:combo.type});
-  log('play',`${PLAYER_NAMES[pid]}: ${cardsStr(cards)} [${combo.type.toUpperCase()}]`);
-  G.firstPlay=false; playSound('card');
+  handOrder = G.hands[MY_PID].map((_, i) => i); selected = [];
+  G.tableCards = cards; G.tablePlayer = pid; G.passCount = 0; G.remActive = false;
   
-  // Hanya masukkan ke G.finished jika kartu di tangan BENAR-BENAR HABIS (length === 0)
+  // CEK AMAN: Ambil type kombinasi, beri fallback 'single' jika null
+  const cType = combo.type || 'single';
+  G.mode = cType === 'single' ? 'single' : 'combo'; 
+  G.comboType = cType === 'single' ? null : cType;
+  
+  G.roundStacks.push({ pid, cards: [...cards], type: cType });
+  
+  // FIX ERROR: Cegah crash dengan mengecek combo.type
+  const typeLabel = combo.type ? combo.type.toUpperCase() : 'UNKNOWN';
+  log('play', `${PLAYER_NAMES[pid]}: ${cardsStr(cards)} [${typeLabel}]`);
+  
+  G.firstPlay = false; playSound('card');
+  
   if (G.hands[pid].length === 0) {
     if(!G.finished.includes(pid)) G.finished.push(pid);
     if (G.lastWinner === null) G.lastWinner = pid;
     
-    // Jika semua/sebagian pemain aktif sudah habis, selesaikan game
     const activeCount = [0,1,2,3].filter(p => !G.finished.includes(p) && G.hands[p].length > 0).length;
     if (activeCount <= 1) { endGame(); return; }
   }
   nextTurn(pid);
 }
-
 function doPass(pid){
   log('pass',`${PLAYER_NAMES[pid]} — PASS`);
   if(pid===MY_PID) playSound('pass');
@@ -1237,33 +1243,40 @@ function showGameOverUI() {
 
 function getAllBotCombos(hand) {
   const combos = [];
+  if (!hand || !hand.length) return combos;
+
+  // Single Cards
   hand.forEach(c => combos.push([c]));
 
+  // Tris / Pair
   const rc = {}; 
-  hand.forEach(c => { rc[c.r] = (rc[c.r]||[]); rc[c.r].push(c); });
+  hand.forEach(c => { rc[c.r] = (rc[c.r] || []); rc[c.r].push(c); });
 
-  Object.values(rc).forEach(arr => { if (arr.length >= 2) combos.push(arr.slice(0,2)); });
-  Object.values(rc).forEach(arr => { if (arr.length >= 3) combos.push(arr.slice(0,3)); });
+  Object.values(rc).forEach(arr => { if (arr.length >= 3) combos.push(arr.slice(0, 3)); });
 
+  // Full House
   const trisRanks = Object.keys(rc).filter(r => rc[r].length >= 3);
   const pairRanks = Object.keys(rc).filter(r => rc[r].length >= 2);
   trisRanks.forEach(tr => {
     pairRanks.forEach(pr => {
       if (tr !== pr && RANKS.indexOf(tr) > RANKS.indexOf(pr)) {
-        combos.push([...rc[tr].slice(0,3), ...rc[pr].slice(0,2)]);
+        combos.push([...rc[tr].slice(0, 3), ...rc[pr].slice(0, 2)]);
       }
     });
   });
 
+  // Straight & Straight Flush
   const remHand = hand.filter(c => c.r !== '2');
-  remHand.sort((a,b) => RANKS.indexOf(a.r) - RANKS.indexOf(b.r));
+  remHand.sort((a, b) => RANKS.indexOf(a.r) - RANKS.indexOf(b.r));
   for (let l = 3; l <= 5; l++) {
     for (let i = 0; i <= remHand.length - l; i++) {
       const slice = remHand.slice(i, i + l);
       if (checkStraight(slice).valid) combos.push(slice);
     }
   }
-  return combos;
+
+  // Filter akhir: Pastikan hanya mengembalikan kombinasi yang VALID
+  return combos.filter(cb => detectCombo(cb).valid);
 }
 
 function isBombRiskHigh(botPid) {
