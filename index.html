@@ -130,7 +130,7 @@ body {
   margin-left: 0; 
 }
 
-/* ── CENTER TABLE (POSISI KOTAK MERAH) ── */
+/* ── CENTER TABLE (POSISI KOTAK MERAH MEJA) ── */
 #tableCenter {
   position: absolute; top: 46%; left: 50%; transform: translate(-50%, -50%);
   width: 320px; min-height: 150px;
@@ -1219,9 +1219,20 @@ function showGameOverUI() {
 
 function getAllBotCombos(hand) {
   const combos = [];
+  // Single
   hand.forEach(c => combos.push([c]));
-  const rc = {}; hand.forEach(c => { rc[c.r] = (rc[c.r]||[]); rc[c.r].push(c); });
+
+  // Grouping Rank
+  const rc = {}; 
+  hand.forEach(c => { rc[c.r] = (rc[c.r]||[]); rc[c.r].push(c); });
+
+  // Pair
+  Object.values(rc).forEach(arr => { if (arr.length >= 2) combos.push(arr.slice(0,2)); });
+
+  // Tris
   Object.values(rc).forEach(arr => { if (arr.length >= 3) combos.push(arr.slice(0,3)); });
+
+  // Full House
   const trisRanks = Object.keys(rc).filter(r => rc[r].length >= 3);
   const pairRanks = Object.keys(rc).filter(r => rc[r].length >= 2);
   trisRanks.forEach(tr => {
@@ -1231,7 +1242,10 @@ function getAllBotCombos(hand) {
       }
     });
   });
+
+  // Straight
   const remHand = hand.filter(c => c.r !== '2');
+  remHand.sort((a,b) => RANKS.indexOf(a.r) - RANKS.indexOf(b.r));
   for (let l = 3; l <= 5; l++) {
     for (let i = 0; i <= remHand.length - l; i++) {
       const slice = remHand.slice(i, i + l);
@@ -1239,6 +1253,26 @@ function getAllBotCombos(hand) {
     }
   }
   return combos;
+}
+
+// Helper untuk bot menganalisis risiko lawan memegang BOM (Card Counting)
+function isBombRiskHigh(botPid) {
+  const opponents = [0,1,2,3].filter(p => p !== botPid && !G.finished.includes(p));
+  const hasOpponentWithEnoughCards = opponents.some(p => G.hands[p].length >= 4);
+  
+  if (!hasOpponentWithEnoughCards) return false;
+
+  const seenRanks = {};
+  RANKS.forEach(r => seenRanks[r] = 0);
+
+  G.hands[botPid].forEach(c => seenRanks[c.r]++);
+
+  (G.roundStacks || []).forEach(stack => {
+    stack.cards.forEach(c => seenRanks[c.r]++);
+  });
+
+  const hiddenRanks = Object.keys(seenRanks).filter(r => r !== '2' && seenRanks[r] <= 1);
+  return hiddenRanks.length >= 2;
 }
 
 function runAI(){
@@ -1256,34 +1290,63 @@ function runAI(){
     doPass(pid); return;
   }
 
-  if(G.mode==='free') {
+  const hasTwo = hand.find(c => c.r === '2');
+
+  if(G.mode === 'free') {
     const allCombos = getAllBotCombos(hand);
-    if (DIFFICULTY === 'hard' && allCombos.length > 0) {
+    if (DIFFICULTY === 'hard') {
+      allCombos.sort((a,b) => b.length - a.length || cardVal(b[0]) - cardVal(a[0]));
+      playCards(pid, allCombos[0]);
+    } else if (DIFFICULTY === 'medium') {
       allCombos.sort((a,b) => b.length - a.length);
       playCards(pid, allCombos[0]);
     } else {
       playCards(pid, [hand[0]]);
     }
   } 
-  else if(G.mode==='single') {
-    const table=G.tableCards[0];
-    let cands=hand.filter(c=>c.r!=='2'&&c.s===table.s&&cardVal(c)>cardVal(table));
-    if (DIFFICULTY === 'hard') cands.sort((a,b) => cardVal(b) - cardVal(a));
-    else cands.sort((a,b) => cardVal(a) - cardVal(b));
+  else if(G.mode === 'single') {
+    const table = G.tableCards[0];
+    let cands = hand.filter(c => c.r !== '2' && c.s === table.s && cardVal(c) > cardVal(table));
     
-    if(cands.length) playCards(pid,[cands[0]]); 
-    else doPass(pid);
+    if (cands.length > 0) {
+      cands.sort((a,b) => cardVal(a) - cardVal(b));
+      playCards(pid, [cands[0]]);
+    } else {
+      if (hasTwo && !G.usedRem[pid]) {
+        if (DIFFICULTY === 'easy') {
+          doRem(pid, hasTwo);
+        } 
+        else if (DIFFICULTY === 'medium') {
+          if (hand.length <= 4) doRem(pid, hasTwo);
+          else doPass(pid);
+        } 
+        else if (DIFFICULTY === 'hard') {
+          const bombRisk = isBombRiskHigh(pid);
+          if (hand.length === 1) {
+            doRem(pid, hasTwo);
+          } else if (bombRisk && hand.length > 2) {
+            log('pass', `🤖 ${PLAYER_NAMES[pid]} (AI) menahan REM karena membaca risiko BOM!`);
+            doPass(pid);
+          } else {
+            doRem(pid, hasTwo);
+          }
+        }
+      } else {
+        doPass(pid);
+      }
+    }
   } 
-  else if(G.mode==='combo') {
+  else if(G.mode === 'combo') {
     const allCombos = getAllBotCombos(hand);
     const tc = detectCombo(G.tableCards);
     const validCombos = allCombos.filter(cb => canBeat(cb, G.tableCards, tc.type));
     
     if (validCombos.length > 0) {
-      if (DIFFICULTY === 'easy' || DIFFICULTY === 'medium') {
+      if (DIFFICULTY === 'hard') {
+        validCombos.sort((a,b) => cardVal(a[0]) - cardVal(b[0]));
         playCards(pid, validCombos[0]);
       } else {
-        playCards(pid, validCombos[validCombos.length - 1]);
+        playCards(pid, validCombos[0]);
       }
     } else {
       doPass(pid);
