@@ -1064,16 +1064,17 @@ function doPass(pid){
   if(pid===MY_PID) playSound('pass');
   G.passCount++;
   
-  const activePlayers = [0,1,2,3].filter(i => !G.finished.includes(i) && G.hands[i].length > 0);
+  // Ambil daftar pemain yang belum selesai dan masih pegang kartu
+  const activePlayers = [0,1,2,3].filter(i => !G.finished.includes(i) && G.hands[i] && G.hands[i].length > 0);
   
-  // Jika semua pemain aktif lain melakukan PASS, pemenang meja berhak jalan bebas!
+  // Jika semua pemain aktif lain sudah PASS, pemenang meja berhak jalan bebas
   if (G.passCount >= activePlayers.length - 1) { 
     winRound(G.tablePlayer); 
     return; 
   }
   nextTurn(pid);
 }
-
+  
 function doRem(pid,card){
   const idx=G.hands[pid].findIndex(x=>x.r===card.r&&x.s===card.s);
   if(idx>=0) G.hands[pid].splice(idx,1);
@@ -1141,8 +1142,8 @@ function winRound(pid){
   G.tableCards=[]; G.tablePlayer=-1; G.passCount=0;
   G.mode='free'; G.comboType=null; G.remActive=false; 
   
-  // Jika pemenang meja ternyata kartunya sudah habis sebelumnya, giliran dilempar ke pemain aktif terdekat
-  if (G.finished.includes(pid) || G.hands[pid].length === 0) {
+  // CEK: Jika pemenang meja kartunya sudah habis, lempar ke pemain aktif berikutnya
+  if (G.finished.includes(pid) || !G.hands[pid] || G.hands[pid].length === 0) {
     const nextP = getNextActive(pid);
     if (nextP === -1) { endGame(); return; }
     G.turn = nextP;
@@ -1152,9 +1153,9 @@ function winRound(pid){
   
   renderAll(); updateHint();
   if(IS_ONLINE) broadcastGameState();
-  if (IS_HOST && isBot(G.turn)) setTimeout(runAI,900);
+  if (IS_HOST && isBot(G.turn)) setTimeout(runAI, 900);
 }
-
+  
 function nextTurn(fromPid){
   if(G.isGameOver) return;
   const next=getNextActive(fromPid);
@@ -1286,33 +1287,55 @@ function isBombRiskHigh(botPid) {
 
 function runAI(){
   if(!IS_HOST || G.isGameOver) return;
-  const pid=G.turn; if(!isBot(pid) || G.finished.includes(pid)) return;
-  const hand=G.hands[pid]; if(!hand || !hand.length){ nextTurn(pid); return; }
+  const pid = G.turn; 
+  if(!isBot(pid) || G.finished.includes(pid)) return;
   
+  const hand = G.hands[pid]; 
+  if(!hand || !hand.length){ nextTurn(pid); return; }
+  
+  // 1. Ronde 1 Wajib 3♦
   if(G.firstPlay && G.gameCount === 1){
-    const card3d = hand.find(c=>c.r==='3'&&c.s==='♦') || hand[0];
+    const card3d = hand.find(c => c.r === '3' && c.s === '♦') || hand[0];
     playCards(pid, [card3d]); 
     return; 
   }
 
-  if (DIFFICULTY === 'easy' && Math.random() < 0.35 && G.mode !== 'free') {
+  // Easy mode chance to pass
+  if (DIFFICULTY === 'easy' && Math.random() < 0.25 && G.mode !== 'free') {
     doPass(pid); return;
   }
 
   const hasTwo = hand.find(c => c.r === '2');
 
+  // 2. MODE BEBAS (Free Turn)
   if(G.mode === 'free') {
     const allCombos = getAllBotCombos(hand);
-    if (DIFFICULTY === 'hard') {
-      allCombos.sort((a,b) => b.length - a.length || cardVal(b[0]) - cardVal(a[0]));
-      playCards(pid, allCombos[0]);
-    } else if (DIFFICULTY === 'medium') {
-      allCombos.sort((a,b) => b.length - a.length);
-      playCards(pid, allCombos[0]);
+    
+    // Jika hanya punya 1 kartu tersisa, langsung buang
+    if (hand.length === 1) {
+      playCards(pid, [hand[0]]);
+      return;
+    }
+
+    if (DIFFICULTY === 'hard' || DIFFICULTY === 'medium') {
+      // Cari kombinasi panjang dulu, jika tidak ada, buang single terkecil
+      const multiCardCombos = allCombos.filter(cb => cb.length > 1);
+      if (multiCardCombos.length > 0) {
+        multiCardCombos.sort((a,b) => b.length - a.length || cardVal(a[0]) - cardVal(b[0]));
+        playCards(pid, multiCardCombos[0]);
+      } else {
+        // Buang kartu single terkecil (bukan 2)
+        const nonTwos = hand.filter(c => c.r !== '2');
+        nonTwos.sort((a,b) => cardVal(a) - cardVal(b));
+        playCards(pid, [nonTwos[0] || hand[0]]);
+      }
     } else {
+      // Easy: Buang acak/terkecil
       playCards(pid, [hand[0]]);
     }
   } 
+  
+  // 3. MODE SINGLE
   else if(G.mode === 'single') {
     const table = G.tableCards[0];
     let cands = hand.filter(c => c.r !== '2' && c.s === table.s && cardVal(c) > cardVal(table));
@@ -1324,17 +1347,15 @@ function runAI(){
       if (hasTwo && !G.usedRem[pid]) {
         if (DIFFICULTY === 'easy') {
           doRem(pid, hasTwo);
-        } 
-        else if (DIFFICULTY === 'medium') {
+        } else if (DIFFICULTY === 'medium') {
           if (hand.length <= 4) doRem(pid, hasTwo);
           else doPass(pid);
-        } 
-        else if (DIFFICULTY === 'hard') {
+        } else if (DIFFICULTY === 'hard') {
           const bombRisk = isBombRiskHigh(pid);
           if (hand.length === 1) {
             doRem(pid, hasTwo);
           } else if (bombRisk && hand.length > 2) {
-            log('pass', `🤖 ${PLAYER_NAMES[pid]} (AI) menahan REM karena membaca risiko BOM!`);
+            log('pass', `🤖 ${PLAYER_NAMES[pid]} menahan REM (Risiko BOM)`);
             doPass(pid);
           } else {
             doRem(pid, hasTwo);
@@ -1345,19 +1366,17 @@ function runAI(){
       }
     }
   } 
+  
+  // 4. MODE COMBO
   else if(G.mode === 'combo') {
     const allCombos = getAllBotCombos(hand);
     const tc = detectCombo(G.tableCards);
     const validCombos = allCombos.filter(cb => canBeat(cb, G.tableCards, tc.type));
     
     if (validCombos.length > 0) {
-      if (DIFFICULTY === 'hard') {
-        validCombos.sort((a,b) => cardVal(a[0]) - cardVal(b[0]));
-        playCards(pid, validCombos[0]);
-      } else {
-        validCombos.sort((a,b) => cardVal(a[0]) - cardVal(b[0]));
-        playCards(pid, validCombos[0]);
-      }
+      // Pilihan kombinasi terkecil yang sanggup melawan meja
+      validCombos.sort((a,b) => cardVal(a[0]) - cardVal(b[0]));
+      playCards(pid, validCombos[0]);
     } else {
       doPass(pid);
     }
