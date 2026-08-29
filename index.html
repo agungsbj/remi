@@ -130,7 +130,7 @@ body {
   margin-left: 0; 
 }
 
-/* ── CENTER TABLE (POSISI KOTAK MERAH MEJA) ── */
+/* ── CENTER TABLE ── */
 #tableCenter {
   position: absolute; top: 46%; left: 50%; transform: translate(-50%, -50%);
   width: 320px; min-height: 150px;
@@ -300,7 +300,7 @@ body {
 .lobby-slots { display: flex; flex-direction: column; gap: 8px; width: min(90%, 320px); }
 .lobby-slot { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; color: #fff; font-size: 0.85rem; }
 
-/* ── MEDIA QUERIES UNTUK TAMPILAN HP (MOBILE LAYOUT FIX) ── */
+/* ── MEDIA QUERIES ── */
 @media (max-width: 700px) {
   body { padding: 0; }
   #gameTable {
@@ -313,7 +313,6 @@ body {
   .pzone-right { right: 4px; top: 22%; transform: translateY(-50%); }
   .pzone-top { top: 6px; }
 
-  /* Kartu Kipas Lawan versi Mini HP */
   .bot-cards { height: 26px; }
   .card-back {
     width: 17px;
@@ -321,9 +320,8 @@ body {
     margin-left: -11px;
   }
 
-  /* ── MEJA TENGAH TEPAT DI KOTAK MERAH ── */
   #tableCenter {
-    top: 48%; /* Digeser turun tepat di area tengah bawah P2/P3 */
+    top: 48%;
     width: 310px;
     min-height: 140px;
   }
@@ -332,7 +330,6 @@ body {
     height: 140px; 
   }
 
-  /* Ukuran Kartu Buangan di Meja */
   #tableCardsWrap .card { 
     width: 50px; 
     height: 70px; 
@@ -346,7 +343,6 @@ body {
     transform: translate(-50%, calc(-50% + 80px));
   }
 
-  /* Kartu Tangan Pemain versi HP */
   .card {
     width: 40px; height: 58px; padding: 3px 0 0 4px;
   }
@@ -1051,10 +1047,14 @@ function playCards(pid, cards) {
   log('play',`${PLAYER_NAMES[pid]}: ${cardsStr(cards)} [${combo.type.toUpperCase()}]`);
   G.firstPlay=false; playSound('card');
   
-  if (!G.hands[pid].length){
+  // Hanya masukkan ke G.finished jika kartu di tangan BENAR-BENAR HABIS (length === 0)
+  if (G.hands[pid].length === 0) {
     if(!G.finished.includes(pid)) G.finished.push(pid);
     if (G.lastWinner === null) G.lastWinner = pid;
-    if (G.finished.length>=1){ endGame(); return; }
+    
+    // Jika semua/sebagian pemain aktif sudah habis, selesaikan game
+    const activeCount = [0,1,2,3].filter(p => !G.finished.includes(p) && G.hands[p].length > 0).length;
+    if (activeCount <= 1) { endGame(); return; }
   }
   nextTurn(pid);
 }
@@ -1063,8 +1063,14 @@ function doPass(pid){
   log('pass',`${PLAYER_NAMES[pid]} — PASS`);
   if(pid===MY_PID) playSound('pass');
   G.passCount++;
-  const active=[0,1,2,3].filter(i=>!G.finished.includes(i));
-  if (G.passCount>=active.filter(i=>i!==G.tablePlayer).length){ winRound(G.tablePlayer); return; }
+  
+  const activePlayers = [0,1,2,3].filter(i => !G.finished.includes(i) && G.hands[i].length > 0);
+  
+  // Jika semua pemain aktif lain melakukan PASS, pemenang meja berhak jalan bebas!
+  if (G.passCount >= activePlayers.length - 1) { 
+    winRound(G.tablePlayer); 
+    return; 
+  }
   nextTurn(pid);
 }
 
@@ -1077,7 +1083,7 @@ function doRem(pid,card){
   G.roundStacks.push({pid, cards:[card], type:'rem'});
   log('rem',`💣 ${PLAYER_NAMES[pid]} REM! ${cardStr(card)}`); playSound('rem');
   
-  if (!G.hands[pid].length){ 
+  if (G.hands[pid].length === 0) { 
     if(!G.finished.includes(pid)) G.finished.push(pid); 
     if (G.lastWinner === null) G.lastWinner = pid;
   }
@@ -1112,7 +1118,13 @@ function doBomb(pid,bomb){
   for (const c of bomb){ const idx=G.hands[pid].findIndex(x=>x.r===c.r&&x.s===c.s); if (idx>=0) G.hands[pid].splice(idx,1); }
   log('bomb',`💥 ${PLAYER_NAMES[pid]} BOM! ${cardsStr(bomb)}`);
   G.roundStacks.push({pid, cards:[...bomb], type:'bomb'}); playSound('bomb');
-  G.remActive=false; G.finished=[pid]; G.lastWinner = pid; endGame();
+  G.remActive=false; 
+  
+  if (G.hands[pid].length === 0) {
+    if(!G.finished.includes(pid)) G.finished.push(pid); 
+    G.lastWinner = pid; 
+  }
+  endGame();
 }
 
 function findBomb(hand){
@@ -1122,13 +1134,15 @@ function findBomb(hand){
   return null;
 }
 
+// PERBAIKAN: winRound HANYA membersihkan meja & memberi hak jalan, JANGAN memisahkan pemain kecuali kartunya 0
 function winRound(pid){
   if(G.isGameOver) return;
-  log('win',`🏆 ${PLAYER_NAMES[pid]} menang ronde!`); playSound('win');
+  log('win',`🏆 ${PLAYER_NAMES[pid]} menang meja!`); playSound('win');
   G.tableCards=[]; G.tablePlayer=-1; G.passCount=0;
   G.mode='free'; G.comboType=null; G.remActive=false; 
   
-  if (G.finished.includes(pid)) {
+  // Jika pemenang meja ternyata kartunya sudah habis sebelumnya, giliran dilempar ke pemain aktif terdekat
+  if (G.finished.includes(pid) || G.hands[pid].length === 0) {
     const nextP = getNextActive(pid);
     if (nextP === -1) { endGame(); return; }
     G.turn = nextP;
@@ -1151,7 +1165,10 @@ function nextTurn(fromPid){
 }
 
 function getNextActive(fromPid){
-  for (let i=1;i<=3;i++){ const p=(fromPid+i)%4; if (!G.finished.includes(p)&&G.hands[p].length>0) return p; }
+  for (let i=1;i<=3;i++){ 
+    const p=(fromPid+i)%4; 
+    if (!G.finished.includes(p) && G.hands[p] && G.hands[p].length > 0) return p; 
+  }
   return -1;
 }
 
@@ -1219,20 +1236,14 @@ function showGameOverUI() {
 
 function getAllBotCombos(hand) {
   const combos = [];
-  // Single
   hand.forEach(c => combos.push([c]));
 
-  // Grouping Rank
   const rc = {}; 
   hand.forEach(c => { rc[c.r] = (rc[c.r]||[]); rc[c.r].push(c); });
 
-  // Pair
   Object.values(rc).forEach(arr => { if (arr.length >= 2) combos.push(arr.slice(0,2)); });
-
-  // Tris
   Object.values(rc).forEach(arr => { if (arr.length >= 3) combos.push(arr.slice(0,3)); });
 
-  // Full House
   const trisRanks = Object.keys(rc).filter(r => rc[r].length >= 3);
   const pairRanks = Object.keys(rc).filter(r => rc[r].length >= 2);
   trisRanks.forEach(tr => {
@@ -1243,7 +1254,6 @@ function getAllBotCombos(hand) {
     });
   });
 
-  // Straight
   const remHand = hand.filter(c => c.r !== '2');
   remHand.sort((a,b) => RANKS.indexOf(a.r) - RANKS.indexOf(b.r));
   for (let l = 3; l <= 5; l++) {
@@ -1255,9 +1265,8 @@ function getAllBotCombos(hand) {
   return combos;
 }
 
-// Helper untuk bot menganalisis risiko lawan memegang BOM (Card Counting)
 function isBombRiskHigh(botPid) {
-  const opponents = [0,1,2,3].filter(p => p !== botPid && !G.finished.includes(p));
+  const opponents = [0,1,2,3].filter(p => p !== botPid && !G.finished.includes(p) && G.hands[p].length > 0);
   const hasOpponentWithEnoughCards = opponents.some(p => G.hands[p].length >= 4);
   
   if (!hasOpponentWithEnoughCards) return false;
@@ -1278,7 +1287,7 @@ function isBombRiskHigh(botPid) {
 function runAI(){
   if(!IS_HOST || G.isGameOver) return;
   const pid=G.turn; if(!isBot(pid) || G.finished.includes(pid)) return;
-  const hand=G.hands[pid]; if(!hand.length){ nextTurn(pid); return; }
+  const hand=G.hands[pid]; if(!hand || !hand.length){ nextTurn(pid); return; }
   
   if(G.firstPlay && G.gameCount === 1){
     const card3d = hand.find(c=>c.r==='3'&&c.s==='♦') || hand[0];
@@ -1346,6 +1355,7 @@ function runAI(){
         validCombos.sort((a,b) => cardVal(a[0]) - cardVal(b[0]));
         playCards(pid, validCombos[0]);
       } else {
+        validCombos.sort((a,b) => cardVal(a[0]) - cardVal(b[0]));
         playCards(pid, validCombos[0]);
       }
     } else {
